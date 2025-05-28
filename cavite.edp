@@ -10,6 +10,7 @@ real rtot = 4.65e-2; // Rayon total du cylindre
 real rho = 1.225; // Masse volumique de l'air
 real c0 = 343.0; // Vitesse du son dans l'air
 
+
 real rtotad = rtot/rd; // Rayon du piston adimensionné
 real llac = h/rd; // cavity aspect ratio
 int Nac = 10; // number of elements for acoustics
