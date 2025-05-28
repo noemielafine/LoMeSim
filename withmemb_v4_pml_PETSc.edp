@@ -1,6 +1,6 @@
 verbosity = 1;
 
-int Membrane = 3; // Choix de la membrane (1 à 6)
+int Membrane = 1; // Choix de la membrane (1 à 6)
 
 include "data_hp.edp"; // Include the data file for the speaker parameters
 include "data_memb.edp"; // Include the data file for the membrane parameters
@@ -23,8 +23,8 @@ real eps = 1e-2; // small dimension for imposing P=0.
 real epml = rtotad; // écart entre le PML et le bord de la cavité
 real lspl = 1/rd; // distance mesure de SPL
 
-int Nac = 10; // number of elements for acoustics
-int Nst = 30; // number of elements for structure
+int Nac = 15; // number of elements for acoustics
+int Nst = 35; // number of elements for structure
 
 int nev = 20; // number of eigenvalues
 
@@ -400,33 +400,33 @@ cout << M2ext.n << " " << M2ext.m << endl;
 set(M1ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
 set(M2ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
 
-complex[int] evext(2*nev); // to store the nev eigenvalue
-complex[int, int] eVext(M1ext.n, 2*nev); // to store the eigenvectors
+complex[int] evext(4*nev); // to store the nev eigenvalue
+complex[int, int] eVext(M1ext.n, 4*nev); // to store the eigenvectors
 
-EigenValue(M2ext, M1ext, value = evext, rawvector = eVext, tol = 1e-30, ncv = 0, driver = 2);
+// EigenValue(M2ext, M1ext, value = evext, rawvector = eVext, sigma=100, tol = 1e-30, ncv = 0, driver = 2);
 
-for (int ni = 1; ni < 2*nev; ni++) {
-	if (real(1i*evext[ni])/tau > 0){
-		cout << "omega_m_ac_hp_ext " << ni+1 << " = " << real(1i*evext[ni])/tau << endl;
-		cout << "f_m_ac_hp_ext " << ni+1 << " = " << real(1i*evext[ni])/(tau*2*pi) << endl;
+// for (int ni = 1; ni < 4*nev; ni++) {
+// 	if (real(1i*evext[ni])/tau > 0){
+// 		cout << "omega_m_ac_hp_ext " << ni+1 << " = " << real(1i*evext[ni])/tau << endl;
+// 		cout << "f_m_ac_hp_ext " << ni+1 << " = " << real(1i*evext[ni])/(tau*2*pi) << endl;
 		
-		Vhac<complex> ptot;
-		Vhext<complex> ptotext;
-		Vhst<complex> ztot;
+// 		Vhac<complex> ptot;
+// 		Vhext<complex> ptotext;
+// 		Vhst<complex> ztot;
 
-		ptot[] = eVext(0:Aac.n-1, ni);
-		ptotext[] = eVext(AtotB.n:AtotBext.n-1, ni);
-		ztot[] = eVext(Aac.n:Aac.n+Ast.n-1, ni);
+// 		ptot[] = eVext(0:Aac.n-1, ni);
+// 		ptotext[] = eVext(AtotB.n:AtotBext.n-1, ni);
+// 		ztot[] = eVext(Aac.n:Aac.n+Ast.n-1, ni);
 
-		Vhac<real> ptotreal = real(ptot);
-		Vhext<real> ptotextreal = real(ptotext);
-		Vhst<real> ztotreal = real(ztot);
+// 		Vhac<real> ptotreal = real(ptot);
+// 		Vhext<real> ptotextreal = real(ptotext);
+// 		Vhst<real> ztotreal = real(ztot);
 
-		plot(ptotreal, wait = 1, dim = 2, cmm="A ext mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
-		plot(ptotextreal, wait = 1, dim = 2, cmm="A int mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
-		plot(ztotreal, wait = 1, dim = 3, cmm="M mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
-	}
-}
+// 		plot(ptotreal, wait = 1, dim = 2, cmm="A ext mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
+// 		plot(ptotextreal, wait = 1, dim = 2, cmm="A int mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
+// 		plot(ztotreal, wait = 1, dim = 3, cmm="M mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
+// 	}
+// }
 
 // ------------------------------  spectre avec ext ------------------------------
 
@@ -479,8 +479,8 @@ func complex dGdn(real x, real y, real xobs, real yobs, real ntheta, real k, rea
 
 
 //-------------------------Boucle de calcul pour chaque fréquence-------------------------
-real xobs = 0; // Coordonnée x de l'observateur
-real yobs = llac + lspl; // Coordonnée y de l'observateur
+real xobs = rtotad; // Coordonnée x de l'observateur
+real yobs = llac + epml*0.7; // Coordonnée y de l'observateur
 
 for(int frame = 0; frame < nFrames; ++frame) {
 	real omega = omegaValues[frame]; // Fréquence actuelle
@@ -532,10 +532,10 @@ for(int frame = 0; frame < nFrames; ++frame) {
 
 
 	
-	// cout <<"po = " << po << " et " << "pext = " << puext(xobs, yobs) << " donc rapport: " << abs(puext(xobs, yobs))/abs(po) << endl; // Affichage des valeurs de fréquence et de pression
+	cout <<"po = " << po << " et " << "pext = " << puext(xobs, yobs) << " donc rapport: " << abs(puext(xobs, yobs))/abs(po) << endl; // Affichage des valeurs de fréquence et de pression
 
 	pobs[frame] = 20*log10(((abs(po)*K0*mu*rd)/M0)/(20*1e-6)); // Stockage de la pression observée
-	// pextValues[frame] = 20*log10(((abs(puext(xobs, yobs))*K0*mu*rd)/M0)/(20*1e-6)); // Stockage de la pression observée
+	pextValues[frame] = 20*log10(((abs(puext(xobs, yobs))*K0*mu*rd)/M0)/(20*1e-6)); // Stockage de la pression observée
 
 	cout << fValues[frame] << " " << pobs[frame] << " " << impValues[frame] << " " << real(Wext) << endl; // Affichage des valeurs de fréquence et de pression
 	plot(pu, puext, fill=1, dim=2, wait = 0, value=1, cmm="Pression acoustique a la frequence "+omega/(2*pi)+ " Hz");
@@ -549,10 +549,10 @@ for (int i = 0; i < nFrames; ++i) {
 	file << fValues[i] << " " << pValues[i] << endl; // Écriture des valeurs de fréquence et de pression dans le fichier
 }
 
-// ofstream fileext("pressureext_frequence_withmemb_v4_ext.dat"); // Ouverture du fichier de sortie
-// for (int i = 0; i < nFrames; ++i) {
-// 	fileext << fValues[i] << " " << pextValues[i] << endl; // Écriture des valeurs de fréquence et de pression dans le fichier
-// }
+ofstream fileext("pressureext_frequence_withmemb_v4_ext.dat"); // Ouverture du fichier de sortie
+for (int i = 0; i < nFrames; ++i) {
+	fileext << fValues[i] << " " << pextValues[i] << endl; // Écriture des valeurs de fréquence et de pression dans le fichier
+}
 
 ofstream fileobs("pressureobs_frequence_withmemb_v4_ext.dat"); // Ouverture du fichier de sortie
 for (int i = 0; i < nFrames; ++i) {
