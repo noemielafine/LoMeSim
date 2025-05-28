@@ -1,0 +1,63 @@
+verbosity = 1;
+
+int Membrane = 1; // Choix de la membrane (1 à 6)
+
+include "data_memb.edp"; // Include the data file for the membrane parameters
+include "data_hp.edp"; // Include the data file for the speaker parameters
+
+real rtotad = 4.65e-2/rd; // Rayon total du cylindre
+real llst = 1e-2; // structure aspect ratio
+int Nst = 30; // number of elements for structure
+
+real mup = 1e3; // stiffness for blocking variation in y for structure
+int nev = 20; // number of eigenvalues
+
+real tau = sqrt(M0/K0);
+
+cout << "tau = " << tau << endl;
+
+real gammam = (M0*Tm)/(K0*rd^2*mu);
+
+int sttop = 1, stbot = 2, stleft = 3, stright = 4;
+
+border bo1(t=0,rtotad){x = t; y = -llst; label = stbot;};
+border bo2(t=0,llst){x = rtotad; y = t-llst; label = stright;};
+border bo3(t=0,rtotad){x = rtotad-t; y = 0; label = sttop;};
+border bo4(t=0,llst){x = 0; y = -t; label = stleft;};
+
+mesh Shstcomp,Shst;
+Shstcomp = buildmesh( bo1(Nst) + bo2(1) + bo3(Nst) + bo4(1), fixedborder = true);
+Shst = emptymesh(Shstcomp);
+plot(Shst,wait = 1);
+
+fespace Vhst(Shst,P2,periodic = [[stbot,x],[sttop,x]]);
+Vhst<complex> zu, zt;
+
+varf stiffst(zu, zt) = // Matrice de raideur
+	int2d(Shst)(gammam * dx(zu) * dx(zt) * x)
+	+ on(stright, zu = 0)
+	+ int2d(Shst)(dy(zu) * dy(zt) * mup * x);
+
+varf massst(zu, zt) = // Matrice de masse
+	int2d(Shst)(zu * zt * x);
+
+matrix<complex> Ast = stiffst(Vhst, Vhst);
+matrix<complex> Bst = massst(Vhst, Vhst);
+
+set(Ast, solver = sparsesolver);
+set(Bst, solver = sparsesolver);
+
+complex[int] evst(nev);
+Vhst<complex>[int] eVst(nev);
+
+EigenValue(Ast, Bst, value = evst, vector = eVst, tol = 1e-18, maxit = 0, ncv = 0, driver = 2); // Modes propres de la membrane
+
+for (int ni = 0; ni < nev; ni++) {
+	cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
+	cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << " Hz" << endl;
+	Vhst<complex> zsol = eVst[ni];
+	Vhst<real> zsolr = real(zsol);
+	plot(zsolr, wait = 1, dim = 3, cmm="M mode "+(ni+1)+"= "+sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
+}
+
+

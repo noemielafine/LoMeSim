@@ -1,0 +1,72 @@
+verbosity = 1;
+
+int Membrane = 1; // Choix de la membrane (1 à 6)
+
+include "data_memb.edp"; // Include the data file for the membrane parameters
+include "data_hp.edp"; // Include the data file for the speaker parameters
+
+real h = 11.7e-2+20.36e-3+41e-3; // Hauteur du cylindre 
+real rtot = 4.65e-2; // Rayon total du cylindre
+real rho = 1.225; // Masse volumique de l'air
+real c0 = 343.0; // Vitesse du son dans l'air
+
+real rtotad = rtot/rd; // Rayon du piston adimensionné
+real llac = h/rd; // cavity aspect ratio
+int Nac = 10; // number of elements for acoustics
+int nev = 20; // number of eigenvalues
+
+real mueps = 1e-6;
+real tau = sqrt(M0/K0);
+
+cout << "tau = " << tau << endl;
+
+real gammaa = (M0*c0^2)/(K0*rd^2);
+
+
+int cavleft1 = 5, bobtop = 6, bobright =7, bobbot = 8, cavleft2 = 9, cavtop1 = 10, cavtop2 = 11, piston = 12, cavright = 13, cavbot = 14, edge = 15;
+
+border bo5(t=0,rtotad){x = t; y = 0; label = cavbot;}; // Bas de la cavité
+border bo6(t=0,llac){x = rtotad; y = t; label = cavright;}; // Droite de la cavité
+border bo71(t=0,1){x = (1-rtotad)*t+rtotad; y = llac; label = cavtop1;}; // Partie supérieure 1
+border bo72(t=0,1){x = 1-rdconead*t; y = llac-depthad*t; label = piston;}; // Partie supérieure 2
+border bo73(t=0,1){x = (1-rdconead)*(1-t); y = llac-depthad; label = cavtop2;}; // Partie supérieure 3
+border bo81(t=0,ebpad){x = 0; y = llac-depthad-t; label = cavleft1;}; // Gauche de la cavité (partie 1)
+border bo82(t=0,rbad){x = t; y = llac-depthad-ebpad; label = bobtop;}; // Haut de la bobine
+border bo83(t=0,hbad){x = rbad; y = llac-depthad-ebpad-t; label = bobright;}; // Droite de la bobine
+border bo84(t=0,rbad){x = rbad-t; y = llac-depthad-ebpad-hbad; label = bobbot;}; // Bas de la bobine
+border bo85(t=0,1){x = 0; y = (llac-depthad-ebpad-hbad)*(1-t); label = cavleft2;}; // Gauche de la cavité (partie 2)
+
+mesh Shac;
+Shac = buildmesh(bo5(Nac) + bo6(3*Nac) + bo71(Nac/2) + bo72(Nac) + bo73(Nac) + bo81(Nac) + bo82(Nac) + bo83(Nac) + bo84(Nac) + bo85(2*Nac), fixedborder = true);
+plot(Shac, wait = 1);
+
+// ----------------------------  acoustic modes  ---------------------------------
+
+fespace Vhac(Shac, P2);
+Vhac<complex> pu, pt;
+
+varf stiffac(pu, pt) =
+	int2d(Shac)(gammaa * (dx(pu) * dx(pt) + dy(pu) * dy(pt)) * x)
+	+ int2d(Shac)(pu * pt * mueps);
+
+varf massac(pu, pt) =
+	int2d(Shac)(pu * pt * x);
+
+matrix<complex> Aac = stiffac(Vhac, Vhac);
+matrix<complex> Bac = massac(Vhac, Vhac);
+
+set(Aac, solver = sparsesolver);
+set(Bac, solver = sparsesolver);
+
+complex[int] evac(nev);
+Vhac<complex>[int] eVac(nev);
+
+EigenValue(Aac, Bac, value = evac, vector = eVac, tol = 1e-30, ncv = 0, driver = 2);
+
+for (int ni = 0; ni < nev; ni++) {
+	cout << "omega_ac" << ni+1 << " = " << sqrt(real(evac[ni]))/tau << endl;
+	cout << "f_ac" << ni+1 << " = " << sqrt(real(evac[ni]))/(tau*2*pi) << " Hz" << endl;
+	Vhac<complex> psolac = eVac[ni];
+	Vhac<real> psolrac = real(psolac);
+	plot(psolrac, wait = 1, dim = 2, cmm="A mode "+(ni+1)+"= "+sqrt(real(evac[ni]))/(tau*2*pi), fill = 1);
+}

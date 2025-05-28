@@ -1,0 +1,32 @@
+real Tm, mu; // Tension de la membrane et masse surfacique
+
+if (Membrane == 1){
+    Tm = 10.548;
+    mu = 0.186;
+} 
+else if (Membrane == 2){
+    Tm = 10.43;
+    mu = 0.191;
+} 
+else if (Membrane == 3){
+    Tm = 10.73;
+    mu = 0.188;
+} 
+else if (Membrane == 4){
+    Tm = 9.586;
+    mu = 0.123;
+} 
+else if (Membrane == 5){
+    Tm = 11.247;
+    mu = 0.222; 
+} 
+else if (Membrane == 6){
+    Tm = 15.45; 
+    mu = 0.46;
+}
+else {
+    cout << "Erreur : Membrane non reconnue" << endl;
+}
+
+cout << "Tm = " << Tm << endl;
+cout << "mu = " << mu << endl;

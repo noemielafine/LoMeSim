@@ -1,0 +1,69 @@
+include "coupled_cavite_memb.edp";
+
+real U0 = 2.83; // Tension électrique
+
+real beta0 = (mu*rd^2)/M0;
+real U0ad=(U0*tau)/(Bl*rd);
+
+//-----------------------------Ajout du haut-parleur---------------------------
+
+varf vaB1(pu, pt) = int1d(Shac, piston)(x * pt * gammaa * betap);
+varf vaB2(pu, pt) = int1d(Shac, piston)(x * pt * beta0);
+
+complex[int] B1 = vaB1(0, Vhac);
+complex[int] B2 = vaB2(0, Vhac);
+
+complex[int, int] Zac(Aac.n, Aac.m);
+Zac=0;
+complex[int, int] Z12(A12.n, A12.m);
+Z12=0;
+complex[int, int] Z21(A21.n, A21.m);
+Z21=0;
+complex[int, int] Zst(Ast.n, Ast.m);
+Zst=0;
+
+matrix<complex> AtotB = [[Aac, A12, 0, 0], [A21, Ast, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0]];
+matrix<complex> BtotB = [[Bac, B12, B1, 0], [B21, Bst, 0, 0], [B2', 0, 1, 0], [0, 0, 0, (L*K0)/(Bl^2)]];
+matrix<complex> CtotB = [[Zac, Z12, 0, 0], [Z21, Zst, 0, 0], [0, 0, B0/sqrt(K0*M0), -1], [0, 0, 1, (R*sqrt(K0*M0))/(Bl^2)]];
+
+cout << AtotB.n << " " << AtotB.m << endl;
+cout << BtotB.n << " " << BtotB.m << endl;
+cout << CtotB.n << " " << CtotB.m << endl;
+
+// ------------------------------  modes couplés sans l'ext ------------------------------
+
+matrix<complex> Id = eye(AtotB.n);
+matrix<complex> nId = -Id;
+matrix<complex> OId = 1e-9*Id;
+
+matrix<complex> M1 = [[Id, 0], [0, BtotB]]; // Manually construct block diagonal matrix
+matrix<complex> M2 = [[OId, nId], [AtotB, CtotB]]; // Ensure proper block matrix construction
+cout << M1.n << " " << M1.m << endl;
+cout << M2.n << " " << M2.m << endl;
+
+set(M1, solver = "slepc", sparams = "-eps_type krylovschur -eps_nev 10");
+set(M2, solver = "slepc", sparams = "-eps_type krylovschur -eps_nev 10");
+
+complex[int] ev(2*nev); // to store the nev eigenvalue
+complex[int, int] eV(M1.n, 2*nev); // to store the eigenvectors
+
+EigenValue(M2, M1, value = ev, rawvector = eV, tol = 1e-30, ncv = 0, driver = 2);
+
+for (int ni = 1; ni < 2*nev; ni++) {
+	if (real(1i*ev[ni])/tau > 0){
+		cout << "omega_m_ac_hp " << ni+1 << " = " << real(1i*ev[ni])/tau << endl;
+		cout << "f_m_ac_hp " << ni+1 << " = " << real(1i*ev[ni])/(tau*2*pi) << endl;
+		
+		Vhac<complex> ptot;
+		Vhst<complex> ztot;
+
+		ptot[] = eV(0:Aac.n-1, ni);
+		ztot[] = eV(Aac.n:Aac.n+Ast.n-1, ni);
+
+		Vhac<real> ptotreal = real(ptot);
+		Vhst<real> ztotreal = real(ztot);
+
+		plot(ptotreal, wait = 1, dim = 2, cmm="M mode CHP "+(ni+1)+" = "+real(1i*ev[ni])/(tau*2*pi), fill = 1, value = 1);
+		plot(ztotreal, wait = 1, dim = 3, cmm="A mode CHP "+(ni+1)+" = "+real(1i*ev[ni])/(tau*2*pi), fill = 1, value = 1);
+	}
+}

@@ -1,0 +1,389 @@
+verbosity = 1;
+
+include "data_hp.edp"; // Include the data file for the speaker parameters
+
+// Paramètres physiques
+real h = 7.51e-2; // Hauteur du cylindre 
+real rtot = 4.65e-2; // Rayon total du cylindre
+real rho = 1.225; // Masse volumique de l'air
+real c0 = 343.0; // Vitesse du son dans l'air
+real U0 = 1; // Tension électrique
+
+real rtotad = rtot/rd; // Rayon du piston adimensionné
+
+real mup = 1e3; // stiffness for blocking variation in y for structure
+
+real llac = h/rd; // cavity aspect ratio
+real lpml = rtotad/1.5; // PML aspect ratio
+real eps = 1e-2; // small dimension for imposing P=0.
+real epml = rtotad; // écart entre le PML et le bord de la cavité
+real lspl = 1/rd; // distance mesure de SPL
+
+int Nac = 10; // number of elements for acoustics
+
+int nev = 20; // number of eigenvalues
+
+real mueps = 1e-6;
+real tau = sqrt(M0/K0);
+
+cout << "tau = " << tau << endl;
+
+real gammaa = (M0*c0^2)/(K0*rd^2);
+real beta = (rho*rd^3)/M0;
+real U0ad=(U0*tau)/(Bl*rd);
+
+real phi0 = 400; // PML attenuation parameter
+
+// ----------------PML functions------------------
+func real yint(real y){
+	if(y>llac+epml){
+		return llac;
+	}
+	else if(y<=llac+epml && y>-epml){
+		return y;
+	}
+	else if(y<=-epml){
+		return 0;
+	}
+}
+func sigx = phi0 * (x-(rtotad+epml))^2;
+func sigy = phi0 * (abs(y-yint(y)) - epml)^2;
+
+func rtilde =  (x>(rtotad+epml))? (x - 1i*phi0*(x - (rtotad+epml))^3/3 ) :x;
+
+func gammax = x>(rtotad+epml)? (1 - 1i*sigx) :1.0;
+func gammay = (abs(y-yint(y))>epml)? (1 - 1i*sigy) :1.0;
+
+// ----------------  mesh  ------------------
+
+// labels
+int cavleft1 = 5, bobtop = 6, bobright =7, bobbot = 8, cavleft2 = 9, cavtop1 = 10, cavtop2 = 11, piston = 12, cavright = 13, cavbot = 14, edge = 15;
+int pmlext = 16, pmlint = 17, center = 18, centerpml = 19; // labels for the PML borders
+
+// mesh for acoustics
+border bo5(t=0,rtotad){x = t; y = 0; label = cavbot;}; // Bas de la cavité
+border bo6(t=0,llac){x = rtotad; y = t; label = cavright;}; // Droite de la cavité
+border bo71(t=0,1){x = (1-rtotad)*t+rtotad; y = llac; label = cavtop1;}; // Partie supérieure 1
+border bo72(t=0,1){x = 1-rdconead*t; y = llac-depthad*t; label = piston;}; // Partie supérieure 2
+border bo73(t=0,1){x = (1-rdconead)*(1-t); y = llac-depthad; label = cavtop2;}; // Partie supérieure 3
+border bo81(t=0,ebpad){x = 0; y = llac-depthad-t; label = cavleft1;}; // Gauche de la cavité (partie 1)
+border bo82(t=0,rbad){x = t; y = llac-depthad-ebpad; label = bobtop;}; // Haut de la bobine
+border bo83(t=0,hbad){x = rbad; y = llac-depthad-ebpad-t; label = bobright;}; // Droite de la bobine
+border bo84(t=0,rbad){x = rbad-t; y = llac-depthad-ebpad-hbad; label = bobbot;}; // Bas de la bobine
+border bo85(t=0,1){x = 0; y = (llac-depthad-ebpad-hbad)*(1-t); label = cavleft2;}; // Gauche de la cavité (partie 2)
+
+// border bo91(t=0,pi/2){x = (1-rdconead)*cos(t); y = llac-depthad+depthad*cos(t); label = edge;}; // Bout du HP
+border bo91(t=0,1) 
+{
+    real a = (1 - rdconead); // Taille en x
+    real b = depthad;        // Taille en y       
+    x = a * (1-t); 
+    y = llac - depthad + b *((1 - exp(-3.*t))/(1 - exp(-3.))); // Forme exponentielle
+    label = edge;
+};
+
+border bo92(t=0,1){x = 0; y = llac-depthad*t; label = edge;}; 
+border bo93(t=0,1){x = (1-rdconead)*t; y = llac-depthad; label = edge;};
+
+//PML borders
+border bo101(t=0,1){x = 0; y = -epml*t; label = center;}; // Axe inférieur
+border bo102(t=0,1){x = 0; y = -epml-lpml*t; label = centerpml;}; // Axe PML inférieur
+border bo103(t=0,1){x = (rtotad+epml+lpml)*t; y = -epml-lpml; label = pmlext;}; // PML extérieur inférieur
+border bo104(t=0,1){x = (rtotad+epml+lpml); y = -epml-lpml+(2*lpml+llac+2*epml)*t; label = pmlext;}; // PML extérieur latéral
+border bo105(t=0,1){x = (rtotad+epml+lpml)*(1-t); y = epml+lpml+llac; label = pmlext;}; // PML extérieur supérieur
+border bo106(t=0,1){x = 0; y = epml+lpml+llac-t*(lpml); label = centerpml;}; // Axe PML supérieur
+border bo107(t=0,1){x = 0; y = epml+llac-t*(epml); label = center;}; // Axe supérieur
+border bo108(t=0,1){x = (rtotad+epml)*t; y = -epml; label = pmlint;}; // PML intérieur inférieur
+border bo109(t=0,1){x = (rtotad+epml); y = -epml+(llac+2*epml)*t; label = pmlint;}; // PML intérieur latéral
+border bo110(t=0,1){x = (rtotad+epml)*(1-t); y = epml+llac; label = pmlint;}; // PML intérieur supérieur
+
+mesh Shedge;
+Shedge = buildmesh(bo91(10) + bo92(1) + bo93(1), fixedborder = true);
+plot(Shedge, wait = 1);
+
+mesh Shac;
+Shac = buildmesh(bo5(Nac) + bo6(3*Nac) + bo71(Nac/2) + bo72(Nac) + bo73(Nac) + bo81(Nac) + bo82(Nac) + bo83(Nac) + bo84(Nac) + bo85(2*Nac), fixedborder = true);
+plot(Shac, wait = 1);
+
+mesh Shext;
+Shext = buildmesh(bo5(-Nac) + bo6(-3*Nac) + bo71(-Nac/2) + bo72(-Nac)
++ bo91(-10) 
++ bo101(Nac) + bo102(Nac) + bo103(2*Nac) + bo104(3*Nac) + bo105(2*Nac) + bo106(Nac) + bo107(Nac) + bo108(2*Nac) + bo109(3*Nac) + bo110(2*Nac), fixedborder = true);
+plot(Shext, wait = 1);
+
+// full mesh (for display only)
+mesh Shtot = Shac + Shedge + Shext;
+plot(Shtot, wait = 1);
+
+mesh ShP = Shac + Shext;
+fespace Vh(ShP, [P1, P1]); // Espace de fonctions pour la pression acoustique
+
+//---------------------------  PML  -----------------------------
+fespace Vhext(Shext, P1);
+Vhext<complex> Vgammax = gammax;
+Vhext Vgammaxr = real(Vgammax);
+Vhext Vgammaxi = imag(Vgammax);
+Vhext<complex> Vgammay = gammay;
+Vhext Vgammayr = real(Vgammay);
+Vhext Vgammayi = imag(Vgammay);
+Vhext<complex> Vrtildep = rtilde;
+Vhext Vrtildepr = real(Vrtildep);
+Vhext Vrtildepi = imag(Vrtildep);
+
+plot(Vgammaxi, wait =1, fill = 1,dim = 3,value = 1);
+plot(Vgammayi, wait =1, fill = 1,dim = 3,value = 1);
+plot(Vrtildepi, wait =1, fill = 1,dim = 3,value = 1);
+
+// ----------------------------  acoustic modes  ---------------------------------
+
+fespace Vhac(Shac, P1);
+Vhac<complex> pu, pt;
+
+varf stiffac(pu, pt) =
+	int2d(Shac)(gammaa * (dx(pu) * dx(pt) + dy(pu) * dy(pt)) * x)
+	+ int2d(Shac)(pu * pt * mueps);
+
+varf massac(pu, pt) =
+	int2d(Shac)(pu * pt * x);
+
+matrix<complex> Aac = stiffac(Vhac, Vhac);
+matrix<complex> Bac = massac(Vhac, Vhac);
+
+set(Aac, solver = sparsesolver);
+set(Bac, solver = sparsesolver);
+
+complex[int] evac(nev);
+Vhac<complex>[int] eVac(nev);
+
+EigenValue(Aac, Bac, value = evac, vector = eVac, tol = 1e-30, ncv = 0, driver = 2);
+
+for (int ni = 0; ni < nev; ni++) {
+	cout << "omega_ac" << ni+1 << " = " << sqrt(real(evac[ni]))/tau << endl;
+	cout << "f_ac" << ni+1 << " = " << sqrt(real(evac[ni]))/(tau*2*pi) << endl;
+	Vhac<complex> psolac = eVac[ni];
+	Vhac<real> psolrac = abs(psolac);
+	plot(psolrac, wait = 1, dim = 2, cmm="A mode "+(ni+1)+" = "+sqrt(real(evac[ni]))/(tau*2*pi), fill = 1);
+}
+
+//-----------------------------Ajout du haut-parleur---------------------------
+
+varf vaB1(pu, pt) = int1d(Shac, piston)(x * pt * gammaa * beta);
+varf vaB2(pu, pt) = int1d(Shac, piston)(x * pt);
+
+complex[int] B1 = vaB1(0, Vhac);
+complex[int] B2 = vaB2(0, Vhac);
+
+complex[int, int] Zac(Aac.n, Aac.m);
+Zac=0;
+
+matrix<complex> AtotB = [[Aac, 0, 0], [0, 1, 0], [0, 0, 0]];
+matrix<complex> BtotB = [[Bac, B1, 0], [B2', 1, 0], [0, 0, (L*K0)/(Bl^2)]];
+matrix<complex> CtotB = [[Zac, 0, 0], [0, B0/sqrt(K0*M0), -1], [0, 1, (R*sqrt(K0*M0))/(Bl^2)]];
+
+cout << AtotB.n << " " << AtotB.m << endl;
+cout << BtotB.n << " " << BtotB.m << endl;
+cout << CtotB.n << " " << CtotB.m << endl;
+
+// ------------------------------  ajout extérieur ------------------------------
+
+Vhext<complex> puext, ptext;
+
+varf stiffext(puext, ptext) =
+	int2d(Shext)(rtilde*gammaa* ((gammay/gammax)*dx(puext) * dx(ptext) + (gammax/gammay)*dy(puext) * dy(ptext)) * x);
+	+ int2d(Shext)(puext * ptext * mueps);
+
+varf massext(puext, ptext) =
+	int2d(Shext)(rtilde*gammax*gammay*puext * ptext * x);
+
+matrix<complex> Aext = stiffext(Vhext, Vhext);
+matrix<complex> Bext = massext(Vhext, Vhext);
+
+varf vaB1ext(puext, ptext) = int1d(Shext, piston)(x * ptext * gammaa * beta);
+varf vaB2ext(puext, ptext) = int1d(Shext, piston)(x * ptext);
+
+complex[int] B1ext = vaB1ext(0, Vhext);
+complex[int] B2ext = vaB2ext(0, Vhext);
+
+complex[int, int] Zext(Aext.n, Aext.m);
+Zext=0;
+
+matrix<complex> AtotBext = [[Aac, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, Aext]];
+matrix<complex> BtotBext = [[Bac, B1, 0, 0], [B2', 1, 0, B2ext'], [0, 0, (L*K0)/(Bl^2), 0], [0, B1ext, 0, Bext]];
+matrix<complex> CtotBext = [[Zac, 0, 0, 0], [0, B0/sqrt(K0*M0), -1, 0], [0, 1, (R*sqrt(K0*M0))/(Bl^2), 0], [0, 0, 0, Zext]];
+
+cout << AtotBext.n << " " << AtotBext.m << endl;
+cout << BtotBext.n << " " << BtotBext.m << endl;
+cout << CtotBext.n << " " << CtotBext.m << endl;
+
+// ------------------------------  modes couplés sans l'ext ------------------------------
+
+matrix<complex> Id = eye(AtotB.n);
+matrix<complex> nId = -Id;
+matrix<complex> OId = 1e-9*Id;
+
+matrix<complex> M1 = [[Id, 0], [0, BtotB]]; // Manually construct block diagonal matrix
+matrix<complex> M2 = [[OId, nId], [AtotB, CtotB]]; // Ensure proper block matrix construction
+cout << M1.n << " " << M1.m << endl;
+cout << M2.n << " " << M2.m << endl;
+
+set(M1, solver = "slepc", sparams = "-eps_type krylovschur -eps_nev 10");
+set(M2, solver = "slepc", sparams = "-eps_type krylovschur -eps_nev 10");
+
+complex[int] ev(2*nev); // to store the nev eigenvalue
+complex[int, int] eV(M1.n, 2*nev); // to store the eigenvectors
+
+EigenValue(M2, M1, value = ev, rawvector = eV, tol = 1e-30, ncv = 0, driver = 2);
+
+for (int ni = 1; ni < 2*nev; ni++) {
+	if (real(1i*ev[ni])/tau > 0){
+		cout << "omega_ac_hp " << ni+1 << " = " << real(1i*ev[ni])/tau << endl;
+		cout << "f_ac_hp " << ni+1 << " = " << real(1i*ev[ni])/(tau*2*pi) << endl;
+		
+		Vhac<complex> ptot;
+
+		ptot[] = eV(0:Aac.n-1, ni);
+
+		Vhac<real> ptotreal = real(ptot);
+
+		plot(ptotreal, wait = 1, dim = 2, cmm="P mode CHP "+(ni+1)+" = "+real(1i*ev[ni])/(tau*2*pi), fill = 1, value = 1);
+	}
+}
+
+// ------------------------------  modes couplés avec l'ext ------------------------------
+
+matrix<complex> Ide = eye(AtotBext.n);
+matrix<complex> nIde = -Ide;
+matrix<complex> OIde = 1e-9*Ide;
+
+matrix<complex> M1ext = [[Ide, 0], [0, BtotBext]]; // Manually construct block diagonal matrix
+matrix<complex> M2ext = [[OIde, nIde], [AtotBext, CtotBext]]; // Ensure proper block matrix construction
+cout << M1ext.n << " " << M1ext.m << endl;
+cout << M2ext.n << " " << M2ext.m << endl;
+
+set(M1ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
+set(M2ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
+
+complex[int] evext(2*nev); // to store the nev eigenvalue
+complex[int, int] eVext(M1ext.n, 2*nev); // to store the eigenvectors
+
+EigenValue(M2ext, M1ext, value = evext, rawvector = eVext, tol = 1e-30, ncv = 0, driver = 2);
+
+for (int ni = 1; ni < 2*nev; ni++) {
+	if (real(1i*evext[ni])/tau > 0){
+		cout << "omega_ac_hp_ext " << ni+1 << " = " << real(1i*evext[ni])/tau << endl;
+		cout << "f_ac_hp_ext " << ni+1 << " = " << real(1i*evext[ni])/(tau*2*pi) << endl;
+		
+		Vhac<complex> ptot;
+		Vhext<complex> ptotext;
+
+		ptot[] = eVext(0:Aac.n-1, ni);
+		ptotext[] = eVext(AtotB.n:AtotBext.n-1, ni);
+
+		Vhac<real> ptotreal = real(ptot);
+		Vhext<real> ptotextreal = real(ptotext);
+
+		plot(ptotreal, ptotextreal, wait = 1, dim = 2, cmm="A ext mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
+	}
+}
+
+// ------------------------------  spectre avec ext ------------------------------
+
+complex[int] Phi(AtotBext.n);
+Phi = 0;
+Phi(AtotB.n-1) = U0ad;
+
+real fmin = 20;       // Fréquence minimale (en Hz)
+real fmax = 20000;    // Fréquence maximale (en Hz)
+int nFrames = 1000;    // Nombre de points de fréquence
+
+real[int] fValues(nFrames); // Tableau pour stocker les fréquences
+
+for (int i = 0; i < nFrames; ++i) {
+    fValues[i] = fmin * pow(fmax / fmin, i / (nFrames - 1.0));
+}
+
+real[int] omegaValues(nFrames); // Tableau pour stocker les pulsations
+
+for (int i = 0; i < nFrames; ++i) {
+    omegaValues[i] = 2 * pi * fValues[i]; // Conversion de la fréquence en pulsation
+}
+
+real[int] pValues(nFrames), pextValues(nFrames), impValues(nFrames), wValues(nFrames), phasew(nFrames); // Vecteurs pour stocker les valeurs de fréquence et de pression
+
+func real log10(real k) {
+    return log(k) / log(10.0); // Fonction logarithme base 10
+}
+
+// --------------------Kirchoff Helmholtz---------------------
+
+real[int] pobs(nFrames); // Tableau pour stocker les valeurs de pression observées
+
+func complex G(real x, real y, real xobs, real yobs, real k) {
+    real r = sqrt((x - xobs)^2 + (y - yobs)^2);
+    return exp(1i * k * r) / (4 * pi * r);
+}
+func complex dGdn(real x, real y, real xobs, real yobs, real k, real nx, real ny) {
+    real r = sqrt((x - xobs)^2 + (y - yobs)^2);
+    real dot = ((x - xobs) * nx + (y - yobs) * ny) / r;
+    return (1i * k - 1 / r) * exp(1i * k * r) * dot / (4 * pi * r);
+}
+
+//-------------------------Boucle de calcul pour chaque fréquence-------------------------
+
+for(int frame = 0; frame < nFrames; ++frame) {
+	real omega = omegaValues[frame]; // Fréquence actuelle
+	real Omega = omega*tau;
+	matrix<complex> MtotBext = -(Omega^2)*BtotBext + AtotBext + 1i*Omega*CtotBext;
+
+	set(MtotBext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
+
+	complex[int] SolBext = MtotBext^-1 * Phi;
+
+	complex Qext = SolBext(AtotB.n-1);
+	complex Wext = SolBext(AtotB.n-2)*rd;
+
+	impValues[frame] = ((Bl^2)/sqrt(K0*M0))*abs(U0ad/(1i*Omega*Qext)); // Calcul de l'impédance acoustique
+	pu[]=SolBext(0:Aac.n-1);
+	puext[]=SolBext(AtotB.n:AtotBext.n-1);
+
+	Vhac<real> pureal = abs(pu);
+
+	real maxvalue = pureal[].max*K0/rd; // Valeur maximale de la pression
+	pValues[frame] = 20*log10(maxvalue/(20*1e-6)); // Calcul du niveau de pression acoustique en dB
+	wValues[frame] = abs(real(Wext)/U0); // Stockage du module du déplacement du haut-parleur
+
+	phasew[frame] = arg(Wext/U0); // Calcul de la phase
+
+	real k = omega / c0; // Nombre d'onde
+
+	complex po = int1d(Shext, edge)(
+		dx(puext) * G(x, y, 0, llac+lspl, k)  -      // Terme avec la dérivée normale de p
+    	puext * dGdn(x, y, 0, llac+lspl, k, N.x, N.y) // Terme avec la dérivée normale de G
+
+	);
+	pobs[frame] = 20*log10((abs(po)*K0/rd)/(20*1e-6));; // Stockage de la pression observée
+
+	cout << fValues[frame] << " " << pobs[frame] << " " << impValues[frame] << " " << real(Wext) << endl; // Affichage des valeurs de fréquence et de pression
+	plot(pu, puext, fill=1, dim=2, wait = 0, value=1, cmm="Pression acoustique a la frequence "+omega/(2*pi)+ " Hz");	
+}
+
+ofstream file("pressure_frequence_nomemb_ext.dat"); // Ouverture du fichier de sortie
+for (int i = 0; i < nFrames; ++i) {
+	file << fValues[i] << " " << pValues[i] << endl; // Écriture des valeurs de fréquence et de pression dans le fichier
+}
+
+ofstream fileobs("pressureobs_frequence_nomemb_ext.dat"); // Ouverture du fichier de sortie
+for (int i = 0; i < nFrames; ++i) {
+	fileobs << fValues[i] << " " << pobs[i] << endl; // Écriture des valeurs de fréquence et de pression dans le fichier
+}
+
+
+ofstream fileimp("impedance_frequence_nomemb_ext.dat"); 
+for (int i = 0; i < nFrames; ++i) {
+	fileimp << fValues[i] << " " << impValues[i] << endl; // Écriture des valeurs de fréquence et d'impédance dans le fichier
+}
+
+ofstream filex("x_frequence_nomemb_ext.dat"); 
+for (int i = 0; i < nFrames; ++i) {
+	filex << fValues[i] << " " << wValues[i] << endl; // Écriture des valeurs de fréquence et de déplacement du piston dans le fichier
+}

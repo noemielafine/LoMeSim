@@ -1,0 +1,148 @@
+
+verbosity = 1;
+
+int Membrane = 1; // Choix de la membrane (1 à 6)
+
+include "data_memb.edp"; // Include the data file for the membrane parameters
+include "data_hp.edp"; // Include the data file for the speaker parameters
+
+real h = 11.7e-2+20.36e-3+41e-3; // Hauteur du cylindre 
+real rtot = 4.65e-2; // Rayon total du cylindre
+real rho = 1.225; // Masse volumique de l'air
+real c0 = 343.0; // Vitesse du son dans l'air
+
+real rtotad = rtot/rd; // Rayon total du cylindre
+
+real llst = 1e-2; // structure aspect ratio
+int Nst = 50; // number of elements for structure
+
+real llac = h/rd; // cavity aspect ratio
+int Nac = 20; // number of elements for acoustics
+
+real mueps = 1e-6;
+real mup = 1e3; // stiffness for blocking variation in y for structure
+int nev = 20; // number of eigenvalues
+
+real tau = sqrt(M0/K0);
+
+cout << "tau = " << tau << endl;
+
+real gammam = (M0*Tm)/(K0*rd^2*mu);
+real gammaa = (M0*c0^2)/(K0*rd^2);
+
+// ----------------------------  membrane  ---------------------------------
+
+int sttop = 1, stbot = 2, stleft = 3, stright = 4;
+
+border bo1(t=0,rtotad){x = t; y = -llst; label = stbot;};
+border bo2(t=0,llst){x = rtotad; y = t-llst; label = stright;};
+border bo3(t=0,rtotad){x = rtotad-t; y = 0; label = sttop;};
+border bo4(t=0,llst){x = 0; y = -t; label = stleft;};
+
+mesh Shstcomp,Shst;
+Shstcomp = buildmesh( bo1(Nst) + bo2(1) + bo3(Nst) + bo4(1), fixedborder = true);
+Shst = emptymesh(Shstcomp);
+plot(Shst,wait = 1);
+
+fespace Vhst(Shst,P1,periodic = [[stbot,x],[sttop,x]]);
+Vhst<complex> zu, zt;
+
+varf stiffst(zu, zt) = // Matrice de raideur
+	int2d(Shst)(gammam * dx(zu) * dx(zt) * x)
+	+ on(stright, zu = 0)
+	+ int2d(Shst)(dy(zu) * dy(zt) * mup * x);
+
+varf massst(zu, zt) = // Matrice de masse
+	int2d(Shst)(zu * zt * x);
+
+matrix<complex> Ast = stiffst(Vhst, Vhst);
+matrix<complex> Bst = massst(Vhst, Vhst);
+
+set(Ast, solver = sparsesolver);
+set(Bst, solver = sparsesolver);
+
+
+// ------------------------------  cavite  ---------------------------
+
+real betap = (rho*rd)/mu;
+
+int cavleft1 = 5, bobtop = 6, bobright =7, bobbot = 8, cavleft2 = 9, cavtop1 = 10, cavtop2 = 11, piston = 12, cavright = 13, cavbot = 14, edge = 15;
+
+border bo5(t=0,rtotad){x = t; y = 0; label = cavbot;}; // Bas de la cavité
+border bo6(t=0,llac){x = rtotad; y = t; label = cavright;}; // Droite de la cavité
+border bo71(t=0,1){x = (1-rtotad)*t+rtotad; y = llac; label = cavtop1;}; // Partie supérieure 1
+border bo72(t=0,1){x = 1-rdconead*t; y = llac-depthad*t; label = piston;}; // Partie supérieure 2
+border bo73(t=0,1){x = (1-rdconead)*(1-t); y = llac-depthad; label = cavtop2;}; // Partie supérieure 3
+border bo81(t=0,ebpad){x = 0; y = llac-depthad-t; label = cavleft1;}; // Gauche de la cavité (partie 1)
+border bo82(t=0,rbad){x = t; y = llac-depthad-ebpad; label = bobtop;}; // Haut de la bobine
+border bo83(t=0,hbad){x = rbad; y = llac-depthad-ebpad-t; label = bobright;}; // Droite de la bobine
+border bo84(t=0,rbad){x = rbad-t; y = llac-depthad-ebpad-hbad; label = bobbot;}; // Bas de la bobine
+border bo85(t=0,1){x = 0; y = (llac-depthad-ebpad-hbad)*(1-t); label = cavleft2;}; // Gauche de la cavité (partie 2)
+
+mesh Shac;
+Shac = buildmesh(bo5(Nac) + bo6(3*Nac) + bo71(Nac/2) + bo72(Nac) + bo73(Nac) + bo81(Nac) + bo82(Nac) + bo83(Nac) + bo84(Nac) + bo85(2*Nac), fixedborder = true);
+plot(Shac, wait = 1);
+
+fespace Vhac(Shac, P2);
+Vhac<complex> pu, pt;
+
+varf stiffac(pu, pt) =
+	int2d(Shac)(gammaa * (dx(pu) * dx(pt) + dy(pu) * dy(pt)) * x)
+	+ int2d(Shac)(pu * pt * mueps);
+
+varf massac(pu, pt) =
+	int2d(Shac)(pu * pt * x);
+
+matrix<complex> Aac = stiffac(Vhac, Vhac);
+matrix<complex> Bac = massac(Vhac, Vhac);
+
+set(Aac, solver = sparsesolver);
+set(Bac, solver = sparsesolver);
+
+
+// ------------------------------  coupled modes  ---------------------------
+
+varf va12(zu, pt) = int1d(Shac, cavbot)(x * zu * pt * 0.0);
+varf va21(pu, zt) = int1d(Shst, sttop)(x * pu * zt);
+
+varf vb12(zu, pt) = -int1d(Shac, cavbot)(x * zu * pt * betap * gammaa);
+varf vb21(pu, zt) = int1d(Shst, sttop)(x * pu * zt * 0.0);
+
+matrix<complex> A12 = va12(Vhst, Vhac);
+matrix<complex> A21 = va21(Vhac, Vhst);
+
+matrix<complex> B12 = vb12(Vhst, Vhac);
+matrix<complex> B21 = vb21(Vhac, Vhst);
+
+matrix<complex> Atot = [[Aac, A12], [A21, Ast]];
+matrix<complex> Btot = [[Bac, B12], [B21, Bst]];
+
+set(Atot, solver = sparsesolver);
+set(Btot, solver = sparsesolver);
+
+complex[int] evtot(nev); // to store the nev eigenvalue
+complex[int, int] eVtot(Atot.n, nev); // to store the eigenvectors
+
+EigenValue(Atot, Btot, value = evtot, rawvector = eVtot, tol = 1e-30, ncv = 0, driver = 2);
+
+//  ---------------------  plot modes couplés  --------------------------
+
+for (int ni = 0; ni < nev; ni++) {
+	cout << "omega_m_ac " << ni+1 << " = " << sqrt(real(evtot[ni]))/tau << " Hz" << endl;
+	cout << "f_m_ac " << ni+1 << " = " << sqrt(real(evtot[ni]))/(tau*2*pi) << " Hz" << endl;
+	Vhac<complex> ptot;
+	Vhst<complex> ztot;
+
+	complex[int] Pvec(Aac.n);
+	complex[int] zvec(Ast.n);
+
+	[Pvec, zvec] = eVtot(:, ni);
+
+	ptot[] = Pvec;
+	ztot[] = zvec;
+
+	Vhst<real> ztotreal = real(ztot);
+
+	plot(ztotreal, wait = 1, dim = 3, cmm="M mode C "+(ni+1)+" = "+sqrt(real(evtot[ni]))/(tau*2*pi), fill = 1, value = 1);
+	plot(ptot, wait = 1, dim = 2, cmm="A mode C "+(ni+1)+" = "+sqrt(real(evtot[ni]))/(tau*2*pi), fill = 1, value = 1);
+}
