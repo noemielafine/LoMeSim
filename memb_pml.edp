@@ -7,16 +7,16 @@ include "data_hp.edp"; // Include the data file for the speaker parameters
 
 real rtot = 4.65e-2; // Rayon total du cylindre
 real llst = 1e-2; // structure aspect ratio
-int Nst = 30; // number of elements for structure
-real lpml = 1/1.5; // PML aspect ratio
-real epml = 1; // écart entre le PML et le bord de la cavité
+int Nst = 40; // number of elements for structure
+real lpml = 0.5; // PML aspect ratio
+real epml = 0.5; // écart entre le PML et le bord de la cavité
 real lspl = 1/rtot; // distance mesure de SPL
 
 int Nac = 20; // number of elements for acoustics
 
 real mueps = 1e-6;
 real mup = 1e3; // stiffness for blocking variation in y for structure
-int nev = 20; // number of eigenvalues
+int nev = 100; // number of eigenvalues
 
 real c0 = 343.0; // Vitesse du son dans l'air
 real rho = 1.225; // Masse volumique de l'air
@@ -62,22 +62,16 @@ func Gammay = (abs(y-yint(y))>epml)? (1 - 1i*sigy) :1.0;
 // ----------------  mesh  ------------------
 
 //PML borders
-border bo1011(t=0,1){x = 0; y = -epml*0.5*t; label = center;}; // Axe inférieur
-border bo1012(t=0,1){x = 0; y = -epml*0.5-epml*0.5*t; label = pmlint;}; 
+border bo101(t=0,1){x = 0; y = -epml*t; label = center;}; // Axe inférieur
 border bo102(t=0,1){x = 0; y = -epml-lpml*t; label = centerpml;}; // Axe PML inférieur
 border bo103(t=0,1){x = (1+epml+lpml)*t; y = -epml-lpml; label = pmlext;}; // PML extérieur inférieur
 border bo104(t=0,1){x = (1+epml+lpml); y = -epml-lpml+(2*lpml+llst+2*epml)*t; label = pmlext;}; // PML extérieur latéral
 border bo105(t=0,1){x = (1+epml+lpml)*(1-t); y = epml+lpml+llst; label = pmlext;}; // PML extérieur supérieur
 border bo106(t=0,1){x = 0; y = epml+lpml+llst-t*(lpml); label = centerpml;}; // Axe PML supérieur
-border bo1071(t=0,1){x = 0; y = epml+llst-t*epml*0.5; label = center;}; // Axe supérieur
-border bo1072(t=0,1){x = 0; y = epml*0.5+llst-t*epml*0.5; label = center;}; 
+border bo107(t=0,1){x = 0; y = epml+llst-t*epml; label = center;}; // Axe supérieur
 border bo108(t=0,1){x = (1+epml)*t; y = -epml; label = pmlint;}; // PML intérieur inférieur
 border bo109(t=0,1){x = (1+epml); y = -epml+(llst+2*epml)*t; label = pmlint;}; // PML intérieur latéral
 border bo110(t=0,1){x = (1+epml)*(1-t); y = epml+llst; label = pmlint;}; // PML intérieur supérieur
-
-border bkh1(t=0,1){x = (1+epml*0.5)*t; y = -epml*0.5; label = kirchoff1;}; // inférieur
-border bkh2(t=0,1){x = (1+epml*0.5); y = -epml*0.5+(llst+epml)*t; label = kirchoff2;}; // latéral
-border bkh3(t=0,1){x = (1+epml*0.5)*(1-t); y = epml*0.5+llst; label = kirchoff3;}; // supérieur
 
 
 mesh Shstcomp,Shst;
@@ -86,13 +80,13 @@ Shst = emptymesh(Shstcomp);
 plot(Shst,wait = 1);
 
 mesh Shext;
-Shext = buildmesh( bo1011(Nac/2) + bo1012(Nac/2) + bo102(Nac) + bo103(2*Nac) + bo104(3*Nac) + bo105(2*Nac) + bo106(Nac) + bo1071(Nac/2) + bo1072(Nac/2) + bo108(2*Nac) + bo109(3*Nac) + bo110(2*Nac)
-+ bkh1(Nac) + bkh2(2*Nac)+ bkh3(Nac)+bo1(-Nst)+bo2(-1)+bo3(-Nst), fixedborder = true);
+Shext = buildmesh( bo101(Nac) + bo102(Nac) + bo103(2*Nac) + bo104(3*Nac) + bo105(2*Nac) + bo106(Nac) + bo107(Nac) + bo108(2*Nac) + bo109(3*Nac) + bo110(2*Nac)
++bo1(-Nst)+bo2(-1)+bo3(-Nst), fixedborder = true);
 mesh Sh = Shst + Shext;
 plot(Sh, wait = 1);
 
 //---------------------------  PML  -----------------------------
-fespace Vhext(Shext, P1);
+fespace Vhext(Shext, P2);
 Vhext<complex> VGammax = Gammax;
 Vhext VGammaxr = real(VGammax);
 Vhext VGammaxi = imag(VGammax);
@@ -109,7 +103,7 @@ plot(Vrtildepi, wait =1, fill = 1,dim = 3,value = 1);
 
 //--------------------------- structural modes -----------------------------
 
-fespace Vhst(Shst,P1,periodic = [[stbot,x],[sttop,x]]);
+fespace Vhst(Shst,P2,periodic = [[stbot,x],[sttop,x]]);
 Vhst<complex> zu, zt;
 
 varf stiffst(zu, zt) = // Matrice de raideur
@@ -134,23 +128,19 @@ varf stiffext(puext, ptext) =
 varf massext(puext, ptext) =
 	int2d(Shext)(rtilde*Gammax*Gammay*puext * ptext * x);
 
-varf va12ext(zu, ptext) = int1d(Shext, sttop)(x * zu * ptext * 0.0);
 varf va21ext(puext, zt) = int1d(Shext, sttop)(x * puext * zt) - int1d(Shext, stbot)(x * puext * zt);
 
 varf vb12ext(zu, ptext) = -int1d(Shext, sttop)(x * zu * ptext * beta * Gamma) + int1d(Shext, stbot)(x * zu * ptext * beta * Gamma);
-varf vb21ext(puext, zt) = int1d(Shext, sttop)(x * puext * zt * 0.0);
 
 matrix<complex> Aext = stiffext(Vhext, Vhext);
 matrix<complex> Bext = massext(Vhext, Vhext);
 
-matrix<complex> A12ext = va12ext(Vhst, Vhext);
 matrix<complex> A21ext = va21ext(Vhext, Vhst);
 
 matrix<complex> B12ext = vb12ext(Vhst, Vhext);
-matrix<complex> B21ext = vb21ext(Vhext, Vhst);
 
-matrix<complex> AtotBext = [[Ast, A21ext], [A12ext, Aext]];
-matrix<complex> BtotBext = [[Bst, B21ext], [B12ext, Bext]];
+matrix<complex> AtotBext = [[Ast, A21ext], [0, Aext]];
+matrix<complex> BtotBext = [[Bst, 0], [B12ext, Bext]];
 
 cout << AtotBext.n << " " << AtotBext.m << endl;
 cout << BtotBext.n << " " << BtotBext.m << endl;
@@ -161,62 +151,21 @@ set(BtotBext, solver = sparsesolver);
 complex[int] evst(nev);
 complex[int, int] eVst(AtotBext.n, nev);
 
-// EigenValue(AtotBext, BtotBext, value = evst, rawvector = eVst, tol = 1e-30, ncv = 0, driver = 2, sigma = 100);
+EigenValue(AtotBext, BtotBext, value = evst, rawvector = eVst, tol = 1e-30, ncv = 0, driver = 2);
 
-// for (int ni = 0; ni < nev; ni++) {
-// 	cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
-// 	cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << endl;
-// 	Vhext<complex> ptotext;
-// 	Vhst<complex> ztot;
+for (int ni = 0; ni < nev; ni++) {
+	if (real(evst[ni]) > 0){
+		cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
+	cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << endl;
+	Vhext<complex> ptotext;
+	Vhst<complex> ztot;
 
-// 	complex[int] Pvec(Aext.n);
-// 	complex[int] zvec(Ast.n);
+	ztot[] = eVst(0:Ast.n-1, ni); // Extract the first part of the eigenvector for z
+	ptotext[] = eVst(Ast.n:AtotBext.n-1, ni); // Extract the second part of the eigenvector for p	
 
-// 	[Pvec, zvec] = eVst(:, ni);
-
-// 	ptotext[] = Pvec;
-// 	ztot[] = zvec;
-
-// 	Vhext<real> ptotextreal = real(ptotext);
-// 	Vhst<real> ztotreal = real(ztot);
-// 	plot(ztotreal, wait = 1, dim = 3, cmm="M mode "+(ni+1)+sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
-//     plot(ptotextreal, wait = 1, dim = 2, cmm="A mode "+(ni+1)+sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
-// }
-
-//------------------------  modes couplés avec l'ext ------------------------------
-
-matrix<complex> Ide = eye(AtotBext.n);
-matrix<complex> nIde = -Ide;
-matrix<complex> OIde = 1e-9*Ide;
-
-matrix<complex> M1ext = [[Ide, 0], [0, BtotBext]]; // Manually construct block diagonal matrix
-matrix<complex> M2ext = [[OIde, nIde], [AtotBext, OIde]]; // Ensure proper block matrix construction
-cout << M1ext.n << " " << M1ext.m << endl;
-cout << M2ext.n << " " << M2ext.m << endl;
-
-set(M1ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
-set(M2ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
-
-complex[int] evext(4*nev); // to store the nev eigenvalue
-complex[int, int] eVext(M1ext.n, 4*nev); // to store the eigenvectors
-
-EigenValue(M2ext, M1ext, value = evext, rawvector = eVext, sigma=100, tol = 1e-30, ncv = 0, driver = 2);
-
-for (int ni = 1; ni < 4*nev; ni++) {
-	if (real(1i*evext[ni])/tau > 0){
-		cout << "omega_m " << ni+1 << " = " << real(1i*evext[ni])/tau << endl;
-		cout << "f_m " << ni+1 << " = " << real(1i*evext[ni])/(tau*2*pi) << endl;
-		
-		Vhext<complex> ptotext;
-		Vhst<complex> ztot;
-
-		ptotext[] = eVext(Ast.n:AtotBext.n-1, ni);
-		ztot[] = eVext(0:Ast.n-1, ni);
-
-		Vhext<real> ptotextreal = real(ptotext);
-		Vhst<real> ztotreal = real(ztot);
-
-		plot(ptotextreal, wait = 1, dim = 2, cmm="A int mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
-		plot(ztotreal, wait = 1, dim = 3, cmm="M mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
-	}
+	Vhext<real> ptotextreal = real(ptotext);
+	Vhst<real> ztotreal = real(ztot);
+	plot(ztotreal, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
+    plot(ptotextreal, wait = 1, value=1, dim = 2, cmm="A mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
+}
 }

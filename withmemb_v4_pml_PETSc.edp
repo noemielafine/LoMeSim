@@ -23,8 +23,8 @@ real eps = 1e-2; // small dimension for imposing P=0.
 real epml = rtotad; // écart entre le PML et le bord de la cavité
 real lspl = 1/rd; // distance mesure de SPL
 
-int Nac = 15; // number of elements for acoustics
-int Nst = 35; // number of elements for structure
+int Nac = 10; // number of elements for acoustics
+int Nst = 30; // number of elements for structure
 
 int nev = 20; // number of eigenvalues
 
