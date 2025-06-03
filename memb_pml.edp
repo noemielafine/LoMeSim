@@ -156,16 +156,16 @@ EigenValue(AtotBext, BtotBext, value = evst, rawvector = eVst, tol = 1e-30, ncv 
 for (int ni = 0; ni < nev; ni++) {
 	if (real(evst[ni]) > 0){
 		cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
-	cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << endl;
-	Vhext<complex> ptotext;
-	Vhst<complex> ztot;
+		cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << endl;
+		Vhext<complex> ptotext;
+		Vhst<complex> ztot;
 
-	ztot[] = eVst(0:Ast.n-1, ni); // Extract the first part of the eigenvector for z
-	ptotext[] = eVst(Ast.n:AtotBext.n-1, ni); // Extract the second part of the eigenvector for p	
+		ztot[] = eVst(0:Ast.n-1, ni); // Extract the first part of the eigenvector for z
+		ptotext[] = eVst(Ast.n:AtotBext.n-1, ni); // Extract the second part of the eigenvector for p	
 
-	Vhext<real> ptotextreal = real(ptotext);
-	Vhst<real> ztotreal = real(ztot);
-	plot(ztotreal, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
-    plot(ptotextreal, wait = 1, value=1, dim = 2, cmm="A mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
-}
+		Vhext<real> ptotextreal = real(ptotext);
+		Vhst<real> ztotreal = real(ztot);
+		plot(ztotreal, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
+		plot(ptotextreal, wait = 1, value=1, dim = 2, cmm="A mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
+	}
 }
