@@ -69,5 +69,5 @@ for (int ni = 0; ni < nev; ni++) {
 	cout << "f_ac" << ni+1 << " = " << sqrt(real(evac[ni]))/(tau*2*pi) << " Hz" << endl;
 	Vhac<complex> psolac = eVac[ni];
 	Vhac<real> psolrac = real(psolac);
-	plot(psolrac, wait = 1, dim = 2, cmm="A mode "+(ni+1)+"= "+sqrt(real(evac[ni]))/(tau*2*pi), fill = 1);
+	plot(psolrac, wait = 1, value=1, dim = 2, cmm="A mode "+(ni+1)+"= "+sqrt(real(evac[ni]))/(tau*2*pi), fill = 1);
 }

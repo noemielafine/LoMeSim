@@ -57,7 +57,7 @@ for (int ni = 0; ni < nev; ni++) {
 	cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << " Hz" << endl;
 	Vhst<complex> zsol = eVst[ni];
 	Vhst<real> zsolr = real(zsol);
-	plot(zsolr, wait = 1, dim = 3, cmm="M mode "+(ni+1)+"= "+sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
+	plot(zsolr, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+"= "+sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
 }
 
 

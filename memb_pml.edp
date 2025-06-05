@@ -3,7 +3,6 @@ verbosity = 1;
 int Membrane = 1; // Choix de la membrane (1 à 6)
 
 include "data_memb.edp"; // Include the data file for the membrane parameters
-include "data_hp.edp"; // Include the data file for the speaker parameters
 
 real rtot = 4.65e-2; // Rayon total du cylindre
 real llst = 1e-2; // structure aspect ratio
