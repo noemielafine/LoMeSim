@@ -15,7 +15,7 @@ int Nac = 20; // number of elements for acoustics
 
 real mueps = 1e-6;
 real mup = 1e3; // stiffness for blocking variation in y for structure
-int nev = 100; // number of eigenvalues
+int nev = 20; // number of eigenvalues
 
 real c0 = 343.0; // Vitesse du son dans l'air
 real rho = 1.225; // Masse volumique de l'air
@@ -29,7 +29,7 @@ real Gamma = (c0^2 * mu) / Tm;
 real beta = (rho*rtot)/mu;
 
 
-int sttop = 1, stbot = 2, stleft = 3, stright = 4, pmlext = 16, pmlint = 17, center = 18, centerpml = 19, kirchoff1=20, kirchoff2=21, kirchoff3=22;
+int sttop = 1, stbot = 2, stleft = 3, stright = 4, pmlext = 16, pmlint = 17, center = 18, centerpml = 19, kirchoff1=20, kirchoff2=21, kirchoff3=22, bord = 23;
 
 border bo1(t=0,1){x = t; y = 0; label = stbot;};
 border bo2(t=0,llst){x = 1; y = t; label = stright;};
@@ -72,6 +72,11 @@ border bo108(t=0,1){x = (1+epml)*t; y = -epml; label = pmlint;}; // PML intérie
 border bo109(t=0,1){x = (1+epml); y = -epml+(llst+2*epml)*t; label = pmlint;}; // PML intérieur latéral
 border bo110(t=0,1){x = (1+epml)*(1-t); y = epml+llst; label = pmlint;}; // PML intérieur supérieur
 
+border bo111(t=0,1){x = 1; y = llst+(1e-2/rtot)*t; label = bord;};
+border bo112(t=0,1){x = 1+(3e-3/rtot)*t; y = llst+(1e-2/rtot); label = bord;}; // Kirchoff 1
+border bo113(t=0,1){x = 1+(3e-3/rtot); y = llst+(1e-2/rtot)*(1-2*t)-llst*t; label = bord;}; // Kirchoff 2
+border bo114(t=0,1){x = 1+(3e-3/rtot)*(1-t); y = -(1e-2/rtot); label = bord;}; // Kirchoff 3
+border bo115(t=0,1){x = 1; y = -(1e-2/rtot)*(1-t); label = bord;}; // Kirchoff 4
 
 mesh Shstcomp,Shst;
 Shstcomp = buildmesh( bo1(Nst) + bo2(1) + bo3(Nst) + bo4(1), fixedborder = true);
@@ -80,7 +85,7 @@ plot(Shst,wait = 1);
 
 mesh Shext;
 Shext = buildmesh( bo101(Nac) + bo102(Nac) + bo103(2*Nac) + bo104(3*Nac) + bo105(2*Nac) + bo106(Nac) + bo107(Nac) + bo108(2*Nac) + bo109(3*Nac) + bo110(2*Nac)
-+bo1(-Nst)+bo2(-1)+bo3(-Nst), fixedborder = true);
++bo1(-Nst)+bo3(-Nst)+bo111(7)+bo112(3)+bo113(14)+bo114(3)+bo115(7), fixedborder = true);
 mesh Sh = Shst + Shext;
 plot(Sh, wait = 1);
 
@@ -152,6 +157,16 @@ complex[int, int] eVst(AtotBext.n, nev);
 
 EigenValue(AtotBext, BtotBext, value = evst, rawvector = eVst, tol = 1e-30, ncv = 0, driver = 2);
 
+Vhst[int] vhst(2);
+
+vhst[0] = x;
+vhst[1] = y;
+
+cout << "# nodes" << endl;
+cout << Vhst.ndof << endl;
+
+int k = 0;
+
 for (int ni = 0; ni < nev; ni++) {
 	if (real(evst[ni]) > 0){
 		cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
@@ -165,6 +180,16 @@ for (int ni = 0; ni < nev; ni++) {
 		Vhext<real> ptotextreal = real(ptotext);
 		Vhst<real> ztotreal = real(ztot);
 		plot(ztotreal, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
-		plot(ptotextreal, wait = 1, value=1, dim = 2, cmm="A mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
+		plot(ptotextreal, wait = 1, value=1, dim = 2, cmm="A mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1, nbiso= 50);
+		k += 1;
+		if(k<4){
+			ofstream foutdat("ztotreal_mode"+k+".dat");
+			for (int i = 0; i < Vhst.ndof; ++i) {
+				foutdat << vhst[0][][i] << " " << ztotreal[][i] << endl;
+			}
+		}
 	}
 }
+
+
+

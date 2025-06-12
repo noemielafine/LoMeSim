@@ -49,6 +49,16 @@ complex[int, int] eV(M1.n, 2*nev); // to store the eigenvectors
 
 EigenValue(M2, M1, value = ev, rawvector = eV, tol = 1e-30, ncv = 0, driver = 2);
 
+Vhst[int] vhst(2);
+
+vhst[0] = x;
+vhst[1] = y;
+
+cout << "# nodes" << endl;
+cout << Vhst.ndof << endl;
+
+int k = 0;
+
 for (int ni = 1; ni < 2*nev; ni++) {
 	if (real(1i*ev[ni])/tau > 0){
 		cout << "omega_m_ac_hp " << ni+1 << " = " << real(1i*ev[ni])/tau << endl;
@@ -65,5 +75,12 @@ for (int ni = 1; ni < 2*nev; ni++) {
 
 		plot(ptotreal, wait = 1, dim = 2, cmm="M mode CHP "+(ni+1)+" = "+real(1i*ev[ni])/(tau*2*pi), fill = 1, value = 1);
 		plot(ztotreal, wait = 1, dim = 3, cmm="A mode CHP "+(ni+1)+" = "+real(1i*ev[ni])/(tau*2*pi), fill = 1, value = 1);
+		k += 1;
+		if(k < 5){
+			ofstream foutdat("ztotreal_mode_chp"+k+".dat");
+			for (int i = 0; i < Vhst.ndof; ++i) {
+				foutdat << vhst[0][][i] << " " << ztotreal[][i] << endl;
+			}
+		}
 	}
 }

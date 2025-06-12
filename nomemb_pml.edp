@@ -3,7 +3,7 @@ verbosity = 1;
 include "data_hp.edp"; // Include the data file for the speaker parameters
 
 // Paramètres physiques
-real h = 7.51e-2; // Hauteur du cylindre 
+real h = 11.7e-2+20.36e-3+41e-3; // Hauteur du cylindre 
 real rtot = 4.65e-2; // Rayon total du cylindre
 real rho = 1.225; // Masse volumique de l'air
 real c0 = 343.0; // Vitesse du son dans l'air
@@ -58,7 +58,7 @@ func gammay = (abs(y-yint(y))>epml)? (1 - 1i*sigy) :1.0;
 
 // labels
 int cavleft1 = 5, bobtop = 6, bobright =7, bobbot = 8, cavleft2 = 9, cavtop1 = 10, cavtop2 = 11, piston = 12, cavright = 13, cavbot = 14, edge = 15;
-int pmlext = 16, pmlint = 17, center = 18, centerpml = 19; // labels for the PML borders
+int pmlext = 16, pmlint = 17, center = 18, centerpml = 19, kirchoff1 = 20, kirchoff2 = 21, kirchoff3 = 22; // labels for the PML borders
 
 // mesh for acoustics
 border bo5(t=0,rtotad){x = t; y = 0; label = cavbot;}; // Bas de la cavité
@@ -86,16 +86,22 @@ border bo92(t=0,1){x = 0; y = llac-depthad*t; label = edge;};
 border bo93(t=0,1){x = (1-rdconead)*t; y = llac-depthad; label = edge;};
 
 //PML borders
-border bo101(t=0,1){x = 0; y = -epml*t; label = center;}; // Axe inférieur
+border bo1011(t=0,1){x = 0; y = -epml*0.5*t; label = center;}; // Axe inférieur
+border bo1012(t=0,1){x = 0; y = -epml*0.5-epml*0.5*t; label = pmlint;}; 
 border bo102(t=0,1){x = 0; y = -epml-lpml*t; label = centerpml;}; // Axe PML inférieur
 border bo103(t=0,1){x = (rtotad+epml+lpml)*t; y = -epml-lpml; label = pmlext;}; // PML extérieur inférieur
 border bo104(t=0,1){x = (rtotad+epml+lpml); y = -epml-lpml+(2*lpml+llac+2*epml)*t; label = pmlext;}; // PML extérieur latéral
 border bo105(t=0,1){x = (rtotad+epml+lpml)*(1-t); y = epml+lpml+llac; label = pmlext;}; // PML extérieur supérieur
 border bo106(t=0,1){x = 0; y = epml+lpml+llac-t*(lpml); label = centerpml;}; // Axe PML supérieur
-border bo107(t=0,1){x = 0; y = epml+llac-t*(epml); label = center;}; // Axe supérieur
+border bo1071(t=0,1){x = 0; y = epml+llac-t*epml*0.5; label = center;}; // Axe supérieur
+border bo1072(t=0,1){x = 0; y = epml*0.5+llac-t*epml*0.5; label = center;}; 
 border bo108(t=0,1){x = (rtotad+epml)*t; y = -epml; label = pmlint;}; // PML intérieur inférieur
 border bo109(t=0,1){x = (rtotad+epml); y = -epml+(llac+2*epml)*t; label = pmlint;}; // PML intérieur latéral
 border bo110(t=0,1){x = (rtotad+epml)*(1-t); y = epml+llac; label = pmlint;}; // PML intérieur supérieur
+
+border bkh1(t=0,1){x = (rtotad+epml*0.5)*t; y = -epml*0.5; label = kirchoff1;}; // inférieur
+border bkh2(t=0,1){x = (rtotad+epml*0.5); y = -epml*0.5+(llac+epml)*t; label = kirchoff2;}; // latéral
+border bkh3(t=0,1){x = (rtotad+epml*0.5)*(1-t); y = epml*0.5+llac; label = kirchoff3;}; // supérieur
 
 mesh Shedge;
 Shedge = buildmesh(bo91(10) + bo92(1) + bo93(1), fixedborder = true);
@@ -105,10 +111,15 @@ mesh Shac;
 Shac = buildmesh(bo5(Nac) + bo6(3*Nac) + bo71(Nac/2) + bo72(Nac) + bo73(Nac) + bo81(Nac) + bo82(Nac) + bo83(Nac) + bo84(Nac) + bo85(2*Nac), fixedborder = true);
 plot(Shac, wait = 1);
 
+// border Kirchoff-Helmoltz
+
+plot(bkh1(10) + bkh2(20)+ bkh3(10), wait = 1); // plot the border
+
 mesh Shext;
 Shext = buildmesh(bo5(-Nac) + bo6(-3*Nac) + bo71(-Nac/2) + bo72(-Nac)
 + bo91(-10) 
-+ bo101(Nac) + bo102(Nac) + bo103(2*Nac) + bo104(3*Nac) + bo105(2*Nac) + bo106(Nac) + bo107(Nac) + bo108(2*Nac) + bo109(3*Nac) + bo110(2*Nac), fixedborder = true);
++ bo1011(Nac/2) + bo1012(Nac/2) + bo102(Nac) + bo103(2*Nac) + bo104(3*Nac) + bo105(2*Nac) + bo106(Nac) + bo1071(Nac/2) + bo1072(Nac/2) + bo108(2*Nac) + bo109(3*Nac) + bo110(2*Nac)
++ bkh1(Nac) + bkh2(2*Nac)+ bkh3(Nac), fixedborder = true);
 plot(Shext, wait = 1);
 
 // full mesh (for display only)
@@ -315,20 +326,30 @@ func real log10(real k) {
 }
 
 // --------------------Kirchoff Helmholtz---------------------
+int nth = 100; // Nombre de points pour la méthode de Kirchoff
+real dot = 0;
 
 real[int] pobs(nFrames); // Tableau pour stocker les valeurs de pression observées
 
-func complex G(real x, real y, real xobs, real yobs, real k) {
-    real r = sqrt((x - xobs)^2 + (y - yobs)^2);
+func complex G(real x, real y, real xobs, real yobs, real ntheta, real k){
+    real r = sqrt(x^2 + xobs^2 - 2*x*xobs*cos(2*pi * ntheta / nth) + (y - yobs)^2);
     return exp(1i * k * r) / (4 * pi * r);
 }
-func complex dGdn(real x, real y, real xobs, real yobs, real k, real nx, real ny) {
-    real r = sqrt((x - xobs)^2 + (y - yobs)^2);
-    real dot = ((x - xobs) * nx + (y - yobs) * ny) / r;
+func complex dGdn(real x, real y, real xobs, real yobs, real ntheta, real k, real nx, real ny, int kir) {
+    real r = sqrt(x^2 + xobs^2 - 2*x*xobs*cos(2*pi * ntheta / nth) + (y - yobs)^2);
+	if(kir == kirchoff1||kir == kirchoff3) {
+		dot = (y-yobs) * ny / r;
+	}
+	if(kir == kirchoff2) {
+		dot = (x - xobs*cos(2*pi * ntheta / nth)) * nx / r;
+	}
     return (1i * k - 1 / r) * exp(1i * k * r) * dot / (4 * pi * r);
 }
 
+
 //-------------------------Boucle de calcul pour chaque fréquence-------------------------
+real xobs = rtotad; // Coordonnée x de l'observateur
+real yobs = llac + epml*0.7; // Coordonnée y de l'observateur
 
 for(int frame = 0; frame < nFrames; ++frame) {
 	real omega = omegaValues[frame]; // Fréquence actuelle
@@ -353,15 +374,30 @@ for(int frame = 0; frame < nFrames; ++frame) {
 	wValues[frame] = abs(real(Wext)/U0); // Stockage du module du déplacement du haut-parleur
 
 	phasew[frame] = arg(Wext/U0); // Calcul de la phase
+	
+	real k = omega * rd / c0; // Nombre d'onde
 
-	real k = omega / c0; // Nombre d'onde
+	Vhext<complex> dpdn = dx(puext)*N.x + dy(puext)*N.y;
+	complex po = 0;
 
-	complex po = int1d(Shext, edge)(
-		dx(puext) * G(x, y, 0, llac+lspl, k)  -      // Terme avec la dérivée normale de p
-    	puext * dGdn(x, y, 0, llac+lspl, k, N.x, N.y) // Terme avec la dérivée normale de G
+	for(int n = 0; n<nth; n++) {
+		complex pon1 = int1d(Shext, kirchoff1)(
+			(puext * dGdn(x, y, xobs, yobs, n, k, N.x, N.y, kirchoff1) - dpdn * G(x, y, xobs, yobs, n, k))*x // Terme avec la dérivée normale de p
+		);
+		complex pon2 = int1d(Shext, kirchoff2)(
+			(puext * dGdn(x, y, xobs, yobs, n, k, N.x, N.y, kirchoff2) - dpdn * G(x, y, xobs, yobs, n, k))*x // Terme avec la dérivée normale de p
+		);
+		complex pon3 = int1d(Shext, kirchoff3)(
+			(puext * dGdn(x, y, xobs, yobs, n, k, N.x, N.y, kirchoff3) - dpdn * G(x, y, xobs, yobs, n, k))*x // Terme avec la dérivée normale de p
+		);
+		po += pon1 + pon2 + pon3; // Somme des contributions de chaque bord
+	}
+	po = 2*po*2*pi/nth; // Moyenne des contributions
 
-	);
-	pobs[frame] = 20*log10((abs(po)*K0/rd)/(20*1e-6));; // Stockage de la pression observée
+	pobs[frame] = 20*log10((abs(po)*K0/rd)/(20*1e-6)); // Stockage de la pression observée
+	pextValues[frame] = 20*log10((abs(puext(xobs, yobs))*K0/rd)/(20*1e-6)); // Stockage de la pression observée
+
+	cout <<"po = " << po << " et " << "pext = " << puext(xobs, yobs) << " donc rapport: " << abs(puext(xobs, yobs))/abs(po) << endl; // Affichage des valeurs de fréquence et de pression
 
 	cout << fValues[frame] << " " << pobs[frame] << " " << impValues[frame] << " " << real(Wext) << endl; // Affichage des valeurs de fréquence et de pression
 	plot(pu, puext, fill=1, dim=2, wait = 0, value=1, cmm="Pression acoustique a la frequence "+omega/(2*pi)+ " Hz");	
