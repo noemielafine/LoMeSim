@@ -40,14 +40,16 @@ varf massst(zu, zt) = // Matrice de masse
 
 matrix<complex> Ast = stiffst(Vhst, Vhst);
 matrix<complex> Bst = massst(Vhst, Vhst);
+complex[int, int] Cst(Ast.n, Ast.n);
+Cst = 0;
 
 set(Ast, solver = sparsesolver);
 set(Bst, solver = sparsesolver);
 
-complex[int] evst(nev);
-Vhst<complex>[int] eVst(nev);
+// complex[int] evst(nev);
+// Vhst<complex>[int] eVst(nev);
 
-EigenValue(Ast, Bst, value = evst, vector = eVst, tol = 1e-30, maxit = 0, ncv = 0, driver = 2); // Modes propres de la membrane
+// EigenValue(Ast, Bst, value = evst, vector = eVst, tol = 1e-30, maxit = 0, ncv = 0, driver = 2); // Modes propres de la membrane
 
 Vhst[int] vhst(2);
 
@@ -59,20 +61,53 @@ cout << Vhst.ndof << endl;
 
 int k = 0;
 
-for (int ni = 0; ni < nev; ni++) {
-	cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
-	cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << " Hz" << endl;
-	Vhst<complex> zsol = eVst[ni];
-	Vhst<real> zsolr = real(zsol);
-	plot(zsolr, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+"= "+sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
-	k += 1;
-	if(k<4){
-		ofstream foutdat("zsolr_mode"+k+".dat");
-		for (int i = 0; i < Vhst.ndof; ++i) {
-			foutdat << vhst[0][][i] << " " << zsolr[][i] << endl;
-		}
-		cout << "zsolr_mode" << k << ".dat written" << endl;
-	}
+ofstream filemode("modes_memb.dat");
+
+// for (int ni = 0; ni < nev; ni++) {
+// 	cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
+// 	cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << " Hz" << endl;
+// 	Vhst<complex> zsol = eVst[ni];
+// 	Vhst<real> zsolr = real(zsol);
+// 	plot(zsolr, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+"= "+sqrt(real(evst[ni]))/(tau*2*pi), fill = 1, ps="zsol_mode"+(ni+1)+".eps");
+// 	k += 1;
+// 	if(k<4){
+// 		ofstream foutdat("zsolr_mode"+k+".dat");
+// 		for (int i = 0; i < Vhst.ndof; ++i) {
+// 			foutdat << vhst[0][][i] << " " << zsolr[][i] << endl;
+// 		}
+// 		cout << "zsolr_mode" << k << ".dat written" << endl;
+// 	}
+// }
+
+matrix<complex> Ide = eye(Ast.n);
+matrix<complex> nIde = -Ide;
+matrix<complex> OIde = 1e-9*Ide;
+
+matrix<complex> M1st = [[Ide, 0], [0, Bst]]; // Manually construct block diagonal matrix
+matrix<complex> M2st = [[OIde, nIde], [Ast, OIde]]; // Ensure proper block matrix construction
+cout << M1st.n << " " << M1st.m << endl;
+cout << M2st.n << " " << M2st.m << endl;
+
+set(M1st, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
+set(M2st, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
+
+complex[int] evst(40); // to store the nev eigenvalue
+complex[int, int] eVst(M1st.n, 40); // to store the eigenvectors
+
+EigenValue(M2st, M1st, value = evst, rawvector = eVst, tol = 1e-30, ncv = 0, driver = 2);
+
+for (int ni = 0; ni < 40; ni++) {
+	cout << "omega_m " << ni+1 << " = " << real(1i*evst[ni])/tau << endl;
+	cout << "f_m " << ni+1 << " = " << real(1i*evst[ni])/(tau*2*pi) << endl;
+	filemode << ni+1 << " " << real(1i*evst[ni])/(tau*2*pi) << " " << real(evst[ni]) << endl;
+	
+	Vhst<complex> ztot;
+
+	ztot[] = eVst(0:Ast.n, ni);
+
+	Vhst<real> ztotreal = real(ztot);
+
+	plot(ztotreal, wait = 1, dim = 3, cmm="M mode CHP st "+(ni+1)+" = "+real(1i*evst[ni])/(tau*2*pi), fill = 1, value = 1);
 }
 
 

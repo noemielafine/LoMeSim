@@ -252,7 +252,7 @@ for (int ni = 1; ni < 2*nev; ni++) {
 		
 		Vhac<complex> ptot;
 
-		ptot[] = eV(0:Aac.n-1, ni);
+		ptot[] = eV(0:Aac.n, ni);
 
 		Vhac<real> ptotreal = real(ptot);
 
@@ -287,8 +287,8 @@ for (int ni = 1; ni < 2*nev; ni++) {
 		Vhac<complex> ptot;
 		Vhext<complex> ptotext;
 
-		ptot[] = eVext(0:Aac.n-1, ni);
-		ptotext[] = eVext(AtotB.n:AtotBext.n-1, ni);
+		ptot[] = eVext(0:Aac.n, ni);
+		ptotext[] = eVext(AtotB.n:AtotBext.n, ni);
 
 		Vhac<real> ptotreal = real(ptot);
 		Vhext<real> ptotextreal = real(ptotext);
@@ -364,8 +364,8 @@ for(int frame = 0; frame < nFrames; ++frame) {
 	complex Wext = SolBext(AtotB.n-2)*rd;
 
 	impValues[frame] = ((Bl^2)/sqrt(K0*M0))*abs(U0ad/(1i*Omega*Qext)); // Calcul de l'impédance acoustique
-	pu[]=SolBext(0:Aac.n-1);
-	puext[]=SolBext(AtotB.n:AtotBext.n-1);
+	pu[]=SolBext(0:Aac.n);
+	puext[]=SolBext(AtotB.n:AtotBext.n);
 
 	Vhac<real> pureal = abs(pu);
 

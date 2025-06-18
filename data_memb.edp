@@ -30,3 +30,6 @@ else {
 
 cout << "Tm = " << Tm << endl;
 cout << "mu = " << mu << endl;
+
+// Membrane crées
+// M_A : 6.7 cm * 12 cm

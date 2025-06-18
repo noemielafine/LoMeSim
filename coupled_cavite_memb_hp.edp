@@ -67,8 +67,8 @@ for (int ni = 1; ni < 2*nev; ni++) {
 		Vhac<complex> ptot;
 		Vhst<complex> ztot;
 
-		ptot[] = eV(0:Aac.n-1, ni);
-		ztot[] = eV(Aac.n:Aac.n+Ast.n-1, ni);
+		ptot[] = eV(0:Aac.n, ni);
+		ztot[] = eV(Aac.n:Aac.n+Ast.n, ni);
 
 		Vhac<real> ptotreal = real(ptot);
 		Vhst<real> ztotreal = real(ztot);

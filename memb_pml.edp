@@ -167,29 +167,60 @@ cout << Vhst.ndof << endl;
 
 int k = 0;
 
-for (int ni = 0; ni < nev; ni++) {
-	if (real(evst[ni]) > 0){
-		cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
-		cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << endl;
-		Vhext<complex> ptotext;
-		Vhst<complex> ztot;
+// for (int ni = 0; ni < nev; ni++) {
+// 		cout << "omega_m" << ni+1 << " = " << sqrt(real(evst[ni]))/tau << endl;
+// 		cout << "f_m" << ni+1 << " = " << sqrt(real(evst[ni]))/(tau*2*pi) << endl;
+// 		Vhext<complex> ptotext;
+// 		Vhst<complex> ztot;
 
-		ztot[] = eVst(0:Ast.n-1, ni); // Extract the first part of the eigenvector for z
-		ptotext[] = eVst(Ast.n:AtotBext.n-1, ni); // Extract the second part of the eigenvector for p	
+// 		ztot[] = eVst(0:Ast.n, ni); // Extract the first part of the eigenvector for z
+// 		ptotext[] = eVst(Ast.n:AtotBext.n, ni); // Extract the second part of the eigenvector for p	
 
-		Vhext<real> ptotextreal = real(ptotext);
-		Vhst<real> ztotreal = real(ztot);
-		plot(ztotreal, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
-		plot(ptotextreal, wait = 1, value=1, dim = 2, cmm="A mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1, nbiso= 50);
-		k += 1;
-		if(k<4){
-			ofstream foutdat("ztotreal_mode"+k+".dat");
-			for (int i = 0; i < Vhst.ndof; ++i) {
-				foutdat << vhst[0][][i] << " " << ztotreal[][i] << endl;
-			}
-		}
-	}
+// 		Vhext<real> ptotextreal = real(ptotext);
+// 		Vhst<real> ztotreal = real(ztot);
+// 		plot(ztotreal, wait = 1, value=1, dim = 3, cmm="M mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1);
+// 		plot(ptotextreal, wait = 1, value=1, dim = 2, cmm="A mode "+(ni+1)+ " " +sqrt(real(evst[ni]))/(tau*2*pi), fill = 1, nbiso= 50);
+// 		k += 1;
+// 		if(k<4){
+// 			ofstream foutdat("ztotreal_mode"+k+".dat");
+// 			for (int i = 0; i < Vhst.ndof; ++i) {
+// 				foutdat << vhst[0][][i] << " " << ztotreal[][i] << endl;
+// 			}
+// 		}
+// }
+
+//------------------------  modes couplés avec l'ext ------------------------------
+
+matrix<complex> Ide = eye(AtotBext.n);
+matrix<complex> nIde = -Ide;
+matrix<complex> OIde = 1e-9*Ide;
+
+matrix<complex> M1ext = [[Ide, 0], [0, BtotBext]]; // Manually construct block diagonal matrix
+matrix<complex> M2ext = [[OIde, nIde], [AtotBext, OIde]]; // Ensure proper block matrix construction
+cout << M1ext.n << " " << M1ext.m << endl;
+cout << M2ext.n << " " << M2ext.m << endl;
+
+set(M1ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
+set(M2ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
+
+complex[int] evext(100); // to store the nev eigenvalue
+complex[int, int] eVext(M1ext.n, 100); // to store the eigenvectors
+
+EigenValue(M2ext, M1ext, value = evext, rawvector = eVext, sigma=100, tol = 1e-30, ncv = 0, driver = 2);
+
+for (int ni = 1; ni < 100; ni++) {
+	cout << "omega_m " << ni+1 << " = " << real(1i*evext[ni])/tau << endl;
+	cout << "f_m " << ni+1 << " = " << real(1i*evext[ni])/(tau*2*pi) << endl;
+	
+	Vhext<complex> ptotext;
+	Vhst<complex> ztot;
+
+	ptotext[] = eVext(Ast.n:AtotBext.n, ni);
+	ztot[] = eVext(0:Ast.n, ni);
+
+	Vhext<real> ptotextreal = real(ptotext);
+	Vhst<real> ztotreal = real(ztot);
+
+	plot(ptotextreal, wait = 1, dim = 2, cmm="A int mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1, nbiso= 50);
+	plot(ztotreal, wait = 1, dim = 3, cmm="M mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
 }
-
-
-
