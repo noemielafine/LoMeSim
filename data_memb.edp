@@ -1,4 +1,5 @@
-real Tm, mu; // Tension de la membrane et masse surfacique
+real Tm, mu, l0, lf; // Tension de la membrane et masse surfacique
+real mu0 = 1.212;
 
 if (Membrane == 1){
     Tm = 10.548;
@@ -24,6 +25,12 @@ else if (Membrane == 6){
     Tm = 15.45; 
     mu = 0.46;
 }
+else if (Membrane == 7){// Membrane M_A
+    Tm = 10; // Tension de la membrane
+    l0 = 6.7e-2; // Longueur initiale de la membrane
+    lf = 12e-2; // Longueur finale de la membrane
+    mu = mu0*(l0^2/lf^2);
+}
 else {
     cout << "Erreur : Membrane non reconnue" << endl;
 }
@@ -32,4 +39,5 @@ cout << "Tm = " << Tm << endl;
 cout << "mu = " << mu << endl;
 
 // Membrane crées
-// M_A : 6.7 cm * 12 cm
+// M_A : 6.7 cm * 12 cm - petit anneau
+// M_B : 6.7 cm * 12.3 cm - grand anneau

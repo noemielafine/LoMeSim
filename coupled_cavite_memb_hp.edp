@@ -63,7 +63,7 @@ for (int ni = 1; ni < 2*nev; ni++) {
 	if (real(1i*ev[ni])/tau > 0){
 		cout << "omega_m_ac_hp " << ni+1 << " = " << real(1i*ev[ni])/tau << endl;
 		cout << "f_m_ac_hp " << ni+1 << " = " << real(1i*ev[ni])/(tau*2*pi) << endl;
-		
+
 		Vhac<complex> ptot;
 		Vhst<complex> ztot;
 

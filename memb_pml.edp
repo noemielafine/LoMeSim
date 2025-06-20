@@ -1,15 +1,29 @@
 verbosity = 1;
 
-int Membrane = 1; // Choix de la membrane (1 à 6)
+int Membrane = 7; // Choix de la membrane (1 à 6)
+int Anneau = 1; // Choix de l'anneau (1 à 2)
 
 include "data_memb.edp"; // Include the data file for the membrane parameters
 
-real rtot = 4.65e-2; // Rayon total du cylindre
-real llst = 1e-2; // structure aspect ratio
+real rglob = 10.3e-2/2;
+real epais = 7.43e-3;
+real larg;
+
+if (Anneau == 1) {
+	larg = 3e-3;
+}
+else if (Anneau == 2) {
+	larg = 1.291e-2;
+}
+
+real rtot = rglob-larg;
+func real adim (real dim){
+	return dim/rtot; // Adimensionnement des dimensions
+}
+real llst = adim(1e-3); // structure aspect ratio
 int Nst = 40; // number of elements for structure
 real lpml = 0.5; // PML aspect ratio
-real epml = 0.5; // écart entre le PML et le bord de la cavité
-real lspl = 1/rtot; // distance mesure de SPL
+real epml = 1; // écart entre le PML et le bord de la cavité
 
 int Nac = 20; // number of elements for acoustics
 
@@ -20,7 +34,7 @@ int nev = 20; // number of eigenvalues
 real c0 = 343.0; // Vitesse du son dans l'air
 real rho = 1.225; // Masse volumique de l'air
 
-
+cout << "rtot = " << rtot << endl;
 real tau = rtot/sqrt(Tm/mu);
 
 cout << "tau = " << tau << endl;
@@ -28,6 +42,9 @@ cout << "tau = " << tau << endl;
 real Gamma = (c0^2 * mu) / Tm;
 real beta = (rho*rtot)/mu;
 
+cout << "Gamma = " << Gamma << endl;
+cout << "beta = " << beta << endl;
+cout << "mu = " << mu << endl;
 
 int sttop = 1, stbot = 2, stleft = 3, stright = 4, pmlext = 16, pmlint = 17, center = 18, centerpml = 19, kirchoff1=20, kirchoff2=21, kirchoff3=22, bord = 23;
 
@@ -72,11 +89,11 @@ border bo108(t=0,1){x = (1+epml)*t; y = -epml; label = pmlint;}; // PML intérie
 border bo109(t=0,1){x = (1+epml); y = -epml+(llst+2*epml)*t; label = pmlint;}; // PML intérieur latéral
 border bo110(t=0,1){x = (1+epml)*(1-t); y = epml+llst; label = pmlint;}; // PML intérieur supérieur
 
-border bo111(t=0,1){x = 1; y = llst+(1e-2/rtot)*t; label = bord;};
-border bo112(t=0,1){x = 1+(3e-3/rtot)*t; y = llst+(1e-2/rtot); label = bord;}; // Kirchoff 1
-border bo113(t=0,1){x = 1+(3e-3/rtot); y = llst+(1e-2/rtot)*(1-2*t)-llst*t; label = bord;}; // Kirchoff 2
-border bo114(t=0,1){x = 1+(3e-3/rtot)*(1-t); y = -(1e-2/rtot); label = bord;}; // Kirchoff 3
-border bo115(t=0,1){x = 1; y = -(1e-2/rtot)*(1-t); label = bord;}; // Kirchoff 4
+border bo111(t=0,1){x = 1; y = llst+(adim(epais))*t; label = bord;};
+border bo112(t=0,1){x = 1+(adim(larg))*t; y = llst+(adim(epais)); label = bord;}; // Kirchoff 1
+border bo113(t=0,1){x = 1+(adim(larg)); y = llst+(adim(epais))*(1-2*t)-llst*t; label = bord;}; // Kirchoff 2
+border bo114(t=0,1){x = 1+(adim(larg))*(1-t); y = -(adim(epais)); label = bord;}; // Kirchoff 3
+border bo115(t=0,1){x = 1; y = -(adim(epais))*(1-t); label = bord;}; // Kirchoff 4
 
 mesh Shstcomp,Shst;
 Shstcomp = buildmesh( bo1(Nst) + bo2(1) + bo3(Nst) + bo4(1), fixedborder = true);
@@ -85,7 +102,7 @@ plot(Shst,wait = 1);
 
 mesh Shext;
 Shext = buildmesh( bo101(Nac) + bo102(Nac) + bo103(2*Nac) + bo104(3*Nac) + bo105(2*Nac) + bo106(Nac) + bo107(Nac) + bo108(2*Nac) + bo109(3*Nac) + bo110(2*Nac)
-+bo1(-Nst)+bo3(-Nst)+bo111(7)+bo112(3)+bo113(14)+bo114(3)+bo115(7), fixedborder = true);
++bo1(-Nst)+bo3(-Nst)+bo111(4)+bo112(2)+bo113(8)+bo114(2)+bo115(4), fixedborder = true);
 mesh Sh = Shst + Shext;
 plot(Sh, wait = 1);
 
@@ -152,10 +169,10 @@ cout << BtotBext.n << " " << BtotBext.m << endl;
 set(AtotBext, solver = sparsesolver);
 set(BtotBext, solver = sparsesolver);
 
-complex[int] evst(nev);
-complex[int, int] eVst(AtotBext.n, nev);
+// complex[int] evst(nev);
+// complex[int, int] eVst(AtotBext.n, nev);
 
-EigenValue(AtotBext, BtotBext, value = evst, rawvector = eVst, tol = 1e-30, ncv = 0, driver = 2);
+// EigenValue(AtotBext, BtotBext, value = evst, rawvector = eVst, tol = 1e-30, ncv = 0, driver = 2);
 
 Vhst[int] vhst(2);
 
@@ -203,24 +220,29 @@ cout << M2ext.n << " " << M2ext.m << endl;
 set(M1ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
 set(M2ext, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
 
-complex[int] evext(100); // to store the nev eigenvalue
-complex[int, int] eVext(M1ext.n, 100); // to store the eigenvectors
+complex[int] evext(nev); // to store the nev eigenvalue
+complex[int, int] eVext(M1ext.n, nev); // to store the eigenvectors
 
-EigenValue(M2ext, M1ext, value = evext, rawvector = eVext, sigma=100, tol = 1e-30, ncv = 0, driver = 2);
+EigenValue(M2ext, M1ext, value = evext, rawvector = eVext, tol = 1e-30, ncv = 0, driver = 2);
 
-for (int ni = 1; ni < 100; ni++) {
-	cout << "omega_m " << ni+1 << " = " << real(1i*evext[ni])/tau << endl;
-	cout << "f_m " << ni+1 << " = " << real(1i*evext[ni])/(tau*2*pi) << endl;
-	
-	Vhext<complex> ptotext;
-	Vhst<complex> ztot;
+ofstream filemode("modes_memb_pml.dat");
 
-	ptotext[] = eVext(Ast.n:AtotBext.n, ni);
-	ztot[] = eVext(0:Ast.n, ni);
+for (int ni = 0; ni < nev; ni++) {
+	if (real(1i*evext[ni]) > 0) {
+		cout << "omega_m " << ni+1 << " = " << real(1i*evext[ni])/tau << endl;
+		cout << "f_m " << ni+1 << " = " << real(1i*evext[ni])/(tau*2*pi) << endl;
+		filemode << ni+1 << " " << real(1i*evext[ni])/(tau*2*pi) << " " << real(evext[ni])/(tau*2*pi) << endl;
 
-	Vhext<real> ptotextreal = real(ptotext);
-	Vhst<real> ztotreal = real(ztot);
+		Vhext<complex> ptotext;
+		Vhst<complex> ztot;
 
-	plot(ptotextreal, wait = 1, dim = 2, cmm="A int mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1, nbiso= 50);
-	plot(ztotreal, wait = 1, dim = 3, cmm="M mode CHP EXT "+(ni+1)+" = "+real(1i*evext[ni])/(tau*2*pi), fill = 1, value = 1);
+		ptotext[] = eVext(Ast.n:AtotBext.n, ni);
+		ztot[] = eVext(0:Ast.n, ni);
+
+		Vhext<real> ptotextreal = real(ptotext);
+		Vhst<real> ztotreal = real(ztot);
+
+		plot(ptotextreal, wait = 1, dim = 2, cmm="A int mode memb_pml "+(ni+1)+" = "+evext[ni]/(tau*2*pi), fill = 1, value = 1, nbiso= 50);
+		plot(ztotreal, wait = 1, dim = 3, cmm="M mode memb_pml "+(ni+1)+" = "+evext[ni]/(tau*2*pi), fill = 1, value = 1);
+	}
 }

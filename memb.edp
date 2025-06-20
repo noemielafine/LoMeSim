@@ -1,15 +1,30 @@
 verbosity = 1;
 
-int Membrane = 1; // Choix de la membrane (1 à 6)
+int Membrane = 7; // Choix de la membrane (1 à 6)
+int Anneau = 1; // Choix de l'anneau (1 à 2)
 
 include "data_memb.edp"; // Include the data file for the membrane parameters
 
-real rtot = 4.65e-2; // Rayon total du cylindre
-real llst = 1e-2; // structure aspect ratio
+real rglob = 10.3e-2/2;
+real epais = 7.43e-3;
+real larg;
+
+if (Anneau == 1) {
+	larg = 3e-3;
+}
+else if (Anneau == 2) {
+	larg = 1.291e-2;
+}
+
+real rtot = rglob-larg;
+func real adim (real dim){
+	return dim/rtot; // Adimensionnement des dimensions
+}
+real llst = adim(1e-3); // structure aspect ratio
 int Nst = 30; // number of elements for structure
 
 real mup = 1e3; // stiffness for blocking variation in y for structure
-int nev = 20; // number of eigenvalues
+int nev = 40; // number of eigenvalues
 
 real tau = rtot/sqrt(Tm/mu);
 
@@ -91,23 +106,26 @@ cout << M2st.n << " " << M2st.m << endl;
 set(M1st, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
 set(M2st, solver = "petsc", sparams = "-ksp_type gmres -pc_type ilu");
 
-complex[int] evst(40); // to store the nev eigenvalue
-complex[int, int] eVst(M1st.n, 40); // to store the eigenvectors
+complex[int] evst(nev); // to store the nev eigenvalue
+complex[int, int] eVst(M1st.n, nev); // to store the eigenvectors
 
 EigenValue(M2st, M1st, value = evst, rawvector = eVst, tol = 1e-30, ncv = 0, driver = 2);
 
-for (int ni = 0; ni < 40; ni++) {
-	cout << "omega_m " << ni+1 << " = " << real(1i*evst[ni])/tau << endl;
-	cout << "f_m " << ni+1 << " = " << real(1i*evst[ni])/(tau*2*pi) << endl;
-	filemode << ni+1 << " " << real(1i*evst[ni])/(tau*2*pi) << " " << real(evst[ni]) << endl;
-	
-	Vhst<complex> ztot;
+for (int ni = 0; ni < nev; ni++) {
+	if (real(1i*evst[ni]) > 0) {
+		cout << "omega_m " << ni+1 << " = " << real(1i*evst[ni])/tau << endl;
+		cout << "f_m " << ni+1 << " = " << real(1i*evst[ni])/(tau*2*pi) << endl;
+		filemode << ni+1 << " " << real(1i*evst[ni])/(tau*2*pi) << " " << real(evst[ni])/(tau*2*pi) << endl;
 
-	ztot[] = eVst(0:Ast.n, ni);
+		Vhst<complex> ztot;
 
-	Vhst<real> ztotreal = real(ztot);
+		ztot[] = eVst(0:Ast.n, ni);
 
-	plot(ztotreal, wait = 1, dim = 3, cmm="M mode CHP st "+(ni+1)+" = "+real(1i*evst[ni])/(tau*2*pi), fill = 1, value = 1);
+		Vhst<real> ztotreal = real(ztot);
+
+		plot(ztotreal, wait = 1, dim = 3, cmm="M mode CHP st "+(ni+1)+" = "+evst[ni]/(tau*2*pi), fill = 1, value = 1);
+
+	}
 }
 
 
