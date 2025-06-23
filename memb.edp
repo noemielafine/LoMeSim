@@ -6,7 +6,6 @@ int Anneau = 1; // Choix de l'anneau (1 à 2)
 include "data_memb.edp"; // Include the data file for the membrane parameters
 
 real rglob = 10.3e-2/2;
-real epais = 7.43e-3;
 real larg;
 
 if (Anneau == 1) {

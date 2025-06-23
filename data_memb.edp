@@ -25,10 +25,18 @@ else if (Membrane == 6){
     Tm = 15.45; 
     mu = 0.46;
 }
-else if (Membrane == 7){// Membrane M_A
+else if (Membrane == 7){// Membrane M_A = Anneau 1
+    Anneau = 1; // Choix de l'anneau
     Tm = 10; // Tension de la membrane
     l0 = 6.7e-2; // Longueur initiale de la membrane
     lf = 12e-2; // Longueur finale de la membrane
+    mu = mu0*(l0^2/lf^2);
+}
+else if (Membrane == 8){// Membrane M_B = Anneau 2
+    Anneau = 2; // Choix de l'anneau
+    Tm = 10; // Tension de la membrane
+    l0 = 6.7e-2; // Longueur initiale de la membrane
+    lf = 12.3e-2; // Longueur finale de la membrane
     mu = mu0*(l0^2/lf^2);
 }
 else {

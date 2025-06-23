@@ -25,7 +25,7 @@ int Nst = 40; // number of elements for structure
 real lpml = 0.5; // PML aspect ratio
 real epml = 1; // écart entre le PML et le bord de la cavité
 
-int Nac = 20; // number of elements for acoustics
+int Nac = 25; // number of elements for acoustics
 
 real mueps = 1e-6;
 real mup = 1e3; // stiffness for blocking variation in y for structure
@@ -40,7 +40,7 @@ real tau = rtot/sqrt(Tm/mu);
 cout << "tau = " << tau << endl;
 
 real Gamma = (c0^2 * mu) / Tm;
-real beta = (rho*rtot)/mu;
+real beta = ((rho*rtot)/mu)*100;
 
 cout << "Gamma = " << Gamma << endl;
 cout << "beta = " << beta << endl;
@@ -120,7 +120,7 @@ Vhext Vrtildepi = imag(Vrtildep);
 
 plot(VGammaxi, wait =1, fill = 1,dim = 3,value = 1);
 plot(VGammayi, wait =1, fill = 1,dim = 3,value = 1);
-plot(Vrtildepi, wait =1, fill = 1,dim = 3,value = 1);
+plot(Vrtildepi, wait =0, fill = 1,dim = 3,value = 1);
 
 //--------------------------- structural modes -----------------------------
 
@@ -149,19 +149,19 @@ varf stiffext(puext, ptext) =
 varf massext(puext, ptext) =
 	int2d(Shext)(rtilde*Gammax*Gammay*puext * ptext * x);
 
-varf va21ext(puext, zt) = int1d(Shext, sttop)(x * puext * zt) - int1d(Shext, stbot)(x * puext * zt);
+varf vb21ext(puext, zt) = -int1d(Shext, sttop)(x * puext * zt * beta) + int1d(Shext, stbot)(x * puext * zt * beta);
 
-varf vb12ext(zu, ptext) = -int1d(Shext, sttop)(x * zu * ptext * beta * Gamma) + int1d(Shext, stbot)(x * zu * ptext * beta * Gamma);
+varf va12ext(zu, ptext) = int1d(Shext, sttop)(x * zu * ptext) - int1d(Shext, stbot)(x * zu * ptext);
 
 matrix<complex> Aext = stiffext(Vhext, Vhext);
 matrix<complex> Bext = massext(Vhext, Vhext);
 
-matrix<complex> A21ext = va21ext(Vhext, Vhst);
+matrix<complex> B21ext = vb21ext(Vhext, Vhst);
 
-matrix<complex> B12ext = vb12ext(Vhst, Vhext);
+matrix<complex> A12ext = va12ext(Vhst, Vhext);
 
-matrix<complex> AtotBext = [[Ast, A21ext], [0, Aext]];
-matrix<complex> BtotBext = [[Bst, 0], [B12ext, Bext]];
+matrix<complex> AtotBext = [[Ast, 0], [A12ext, Aext]];
+matrix<complex> BtotBext = [[Bst, B21ext], [0, Bext]];
 
 cout << AtotBext.n << " " << AtotBext.m << endl;
 cout << BtotBext.n << " " << BtotBext.m << endl;
